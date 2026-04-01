@@ -1,16 +1,3 @@
-//
-//  AssessmentView.swift
-//  HairCure
-//
-//  No changes required in this file.
-//
-//  All store calls (store.assessmentQuestions, store.options, store.saveAnswer,
-//  store.saveMultiAnswer, store.savePickerAnswer, store.startAssessment,
-//  store.completeAssessment) are forwarded from AppDataStore → AssessmentDataStore
-//  via the bridge layer in AppDataStore.swift.
-//
-//  Original implementation is preserved verbatim below.
-//
 
 import SwiftUI
 
@@ -49,27 +36,30 @@ struct AssessmentView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 12)
 
-                HCProgressBar(current: currentIndex + 1, total: totalCount)
-                    .animation(.easeInOut(duration: 0.30), value: currentIndex)
-                    .padding(.bottom, 32)
-
-                if let q = currentQuestion {
-                    questionBody(q)
-                        .id(currentIndex)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal:   .move(edge: .leading).combined(with: .opacity)
-                        ))
+                TabView(selection: $currentIndex) {
+                    ForEach(Array(questions.enumerated()), id: \.offset) { index, q in
+                        questionBody(q)
+                            .tag(index)
+                    }
                 }
-
-                Spacer(minLength: 100)
+                .tabViewStyle(.page(indexDisplayMode: .always))
+                .indexViewStyle(.page(backgroundDisplayMode: .never))
             }
+            // Block swipe—only Continue/Back advances
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                DragGesture().onChanged { _ in }
+            )
 
-            continueButton
-                .padding(.horizontal, 24)
-                .padding(.bottom, 36)
+            VStack(spacing: 0) {
+                Spacer()
+                continueButton
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 36)
+            }
         }
         .onAppear {
+            stylePageDots()
             store.startAssessment()
             seedPickerDefaults()
         }
@@ -371,7 +361,7 @@ struct AssessmentView: View {
         switch q.questionType {
         case .singleChoice: return singleSelections[q.id] != nil
         case .multiChoice:  return !(multiSelections[q.id]?.isEmpty ?? true)
-        case .picker:       return pickerValues[q.id] != nil
+        case .picker:       return true   // always has a value (seeded or user-chosen)
         case .imageChoice:  return imageSelections[q.id] != nil
         case .freeText:
             return !(textValues[q.id]?.trimmingCharacters(in: .whitespaces).isEmpty ?? true)
@@ -382,6 +372,11 @@ struct AssessmentView: View {
     // MARK: Helpers
     // ─────────────────────────────────────
 
+    private func stylePageDots() {
+        UIPageControl.appearance().currentPageIndicatorTintColor = UIColor(Color.hcBrown)
+        UIPageControl.appearance().pageIndicatorTintColor = UIColor(Color.hcBrown.opacity(0.2))
+    }
+
     private func advance() {
         if currentIndex < totalCount - 1 { currentIndex += 1 }
     }
@@ -391,6 +386,7 @@ struct AssessmentView: View {
             if pickerValues[q.id] == nil {
                 let midpoint = ((q.pickerMin ?? 0) + (q.pickerMax ?? 100)) / 2
                 pickerValues[q.id] = midpoint
+                store.savePickerAnswer(questionId: q.id, pickerValue: midpoint)  // FIX: persist default to store
             }
         }
     }

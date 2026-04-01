@@ -1,63 +1,54 @@
-//
-//  MindEaseDataStore.swift
-//
-//  Modelled after RestaurantStore — UUIDs declared once at the top,
-//  seed data assigned in init(), helper methods match what every view calls.
-
-
 import Foundation
 import Observation
-
-// ── Stable category UUIDs (declared once, referenced everywhere) ─────────────
-private let yogaID:       UUID = UUID()
-private let meditationID: UUID = UUID()
-private let soundsID:     UUID = UUID()
-
-// ── Stable content UUIDs — Yoga ──────────────────────────────────────────────
-private let uttanasanaID:    UUID = UUID()
-private let mukhaID:         UUID = UUID()
-private let shirshasanaID:   UUID = UUID()
-private let balayamID:       UUID = UUID()
-private let vajrasanaID:     UUID = UUID()
-
-// ── Stable content UUIDs — Meditation ────────────────────────────────────────
-private let bhramariID:      UUID = UUID()
-private let anulomID:        UUID = UUID()
-private let kapalbhatiID:    UUID = UUID()
-private let bodyScanID:      UUID = UUID()
-private let guidedVisID:     UUID = UUID()
-
-// ── Stable content UUIDs — Relaxing Sounds ───────────────────────────────────
-private let oceanWavesID:    UUID = UUID()
-private let forestBreezeID:  UUID = UUID()
-private let birdSongsID:     UUID = UUID()
-private let deepSleepID:     UUID = UUID()
-private let eveningWindID:   UUID = UUID()
+import SwiftUI
 
 // MARK: - MindEaseDataStore
 
 @Observable
-class MindEaseDataStore {
+final class MindEaseDataStore {
 
-    // MARK: State
+    // MARK: - Stable IDs
+    private let yogaID       = UUID()
+    private let meditationID = UUID()
+    private let soundsID     = UUID()
 
+    private let uttanasanaID  = UUID()
+    private let mukhaID       = UUID()
+    private let shirshasanaID = UUID()
+    private let balayamID     = UUID()
+    private let vajrasanaID   = UUID()
+
+    private let bhramariID   = UUID()
+    private let anulomID     = UUID()
+    private let kapalbhatiID = UUID()
+    private let bodyScanID   = UUID()
+    private let guidedVisID  = UUID()
+
+    private let oceanWavesID   = UUID()
+    private let forestBreezeID = UUID()
+    private let birdSongsID    = UUID()
+    private let deepSleepID    = UUID()
+    private let eveningWindID  = UUID()
+
+    // MARK: - State
     var mindEaseCategories:       [MindEaseCategory]        = []
     var mindEaseCategoryContents: [MindEaseCategoryContent] = []
-    var mindfulSessions:          [MindfulSession]          = []
-    var todaysPlans:              [TodaysPlan]              = []
-    var sessionStartTimes:        [UUID: Date]              = [:]
-
-    // MARK: Shared
+    var mindfulSessions:           [MindfulSession]          = []
+    var todaysPlans:               [TodaysPlan]              = []
+    var sessionStartTimes:         [UUID: Date]              = [:]
 
     var currentUserId: UUID
     weak var parentStore: AppDataStore?
 
-    // MARK: Init  ← same pattern as RestaurantStore
-
+    // MARK: - Init
     init(currentUserId: UUID) {
         self.currentUserId = currentUserId
+        seedCategories()
+        seedContent()
+    }
 
-        // ── Categories ───────────────────────────────────────────────────────
+    // MARK: - Seed Categories
+    private func seedCategories() {
         mindEaseCategories = [
             MindEaseCategory(
                 id: yogaID,
@@ -84,196 +75,192 @@ class MindEaseDataStore {
                 tagline: "Close Your Eyes And Unwind"
             ),
         ]
+    }
 
-        // ── Content items ────────────────────────────────────────────────────
+    // MARK: - Seed Content
+    private func seedContent() {
         mindEaseCategoryContents = [
-
-            // ── Yoga ─────────────────────────────────────────────────────────
+            // Yoga
             MindEaseCategoryContent(
                 id: uttanasanaID, categoryId: yogaID,
-                title: "Uttanasana", contentDescription: "Forward bend — relieves stress and refreshes scalp",
+                title: "Uttanasana",
+                contentDescription: "Forward bend — relieves stress and refreshes scalp",
                 caption: "Forward Fold",
                 mediaURL: "yoga_1.mp4", mediaType: "video",
                 durationSeconds: 90, difficultyLevel: "beginner",
-                imageurl: "uttanasana",
-                orderIndex: 1, lastPlaybackSeconds: 0
+                imageurl: "uttanasana", lastPlaybackSeconds: 0
             ),
             MindEaseCategoryContent(
                 id: mukhaID, categoryId: yogaID,
-                title: "Mukha Svanasana", contentDescription: "Downward dog — increases blood flow to scalp",
+                title: "Mukha Svanasana",
+                contentDescription: "Downward dog — increases blood flow to scalp",
                 caption: "Downward Facing Dog",
                 mediaURL: "yoga_2.mp4", mediaType: "video",
                 durationSeconds: 90, difficultyLevel: "beginner",
-                imageurl: "ardh",
-                orderIndex: 2, lastPlaybackSeconds: 0
+                imageurl: "ardh", lastPlaybackSeconds: 0
             ),
             MindEaseCategoryContent(
                 id: shirshasanaID, categoryId: yogaID,
-                title: "Shirshasana", contentDescription: "Headstand — boosts circulation to hair follicles",
+                title: "Shirshasana",
+                contentDescription: "Headstand — boosts circulation to hair follicles",
                 caption: "Headstand",
                 mediaURL: "yoga_3.mp4", mediaType: "video",
                 durationSeconds: 90, difficultyLevel: "intermediate",
-                imageurl: "shirshasana",
-                orderIndex: 3, lastPlaybackSeconds: 0
+                imageurl: "shirshasana", lastPlaybackSeconds: 0
             ),
             MindEaseCategoryContent(
                 id: balayamID, categoryId: yogaID,
-                title: "Uttanasana", contentDescription: "Downward Fold — stimulates hair follicles directly",
+                title: "Balayam",
+                contentDescription: "Nail rubbing — stimulates hair follicles directly",
                 caption: "Downward Fold",
                 mediaURL: "yoga_4.mp4", mediaType: "video",
                 durationSeconds: 600, difficultyLevel: "beginner",
-                imageurl: "uttanasana",
-                orderIndex: 4, lastPlaybackSeconds: 0
+                imageurl: "uttanasana", lastPlaybackSeconds: 0
             ),
             MindEaseCategoryContent(
                 id: vajrasanaID, categoryId: yogaID,
-                title: "Vajrasana", contentDescription: "Diamond pose — aids digestion and nutrient absorption",
+                title: "Vajrasana",
+                contentDescription: "Diamond pose — aids digestion and nutrient absorption",
                 caption: "Diamond Pose",
                 mediaURL: "yoga_5.mp4", mediaType: "video",
                 durationSeconds: 900, difficultyLevel: "beginner",
-                imageurl: "shirshasana",
-                orderIndex: 5, lastPlaybackSeconds: 0
+                imageurl: "shirshasana", lastPlaybackSeconds: 0
             ),
 
-            // ── Meditation ────────────────────────────────────────────────────
+            //  Meditation
             MindEaseCategoryContent(
                 id: bhramariID, categoryId: meditationID,
-                title: "Bhramari", contentDescription: "Humming bee breath — reduces stress hormones rapidly",
+                title: "Bhramari",
+                contentDescription: "Humming bee breath — reduces stress hormones rapidly",
                 caption: "Humming Bee Breath",
                 mediaURL: "meditation_1.mp4", mediaType: "video",
                 durationSeconds: 600, difficultyLevel: "beginner",
-                imageurl: "yoga",
-                orderIndex: 1, lastPlaybackSeconds: 0
+                imageurl: "yoga", lastPlaybackSeconds: 0
             ),
             MindEaseCategoryContent(
                 id: anulomID, categoryId: meditationID,
-                title: "Anulom Vilom", contentDescription: "Alternate nostril breathing — balances the nervous system",
+                title: "Anulom Vilom",
+                contentDescription: "Alternate nostril breathing — balances the nervous system",
                 caption: "Alternate Nostril Breathing",
                 mediaURL: "meditation_2.mp4", mediaType: "video",
                 durationSeconds: 900, difficultyLevel: "beginner",
-                imageurl: "shirshasana",
-                orderIndex: 2, lastPlaybackSeconds: 0
+                imageurl: "shirshasana", lastPlaybackSeconds: 0
             ),
             MindEaseCategoryContent(
                 id: kapalbhatiID, categoryId: meditationID,
-                title: "Kapalbhati", contentDescription: "Cleansing breath — detoxifies and energises",
+                title: "Kapalbhati",
+                contentDescription: "Cleansing breath — detoxifies and energises",
                 caption: "Skull Shining Breath",
                 mediaURL: "meditation_3.mp4", mediaType: "video",
                 durationSeconds: 600, difficultyLevel: "intermediate",
-                imageurl: "shirshasana",
-                orderIndex: 3, lastPlaybackSeconds: 0
+                imageurl: "shirshasana", lastPlaybackSeconds: 0
             ),
             MindEaseCategoryContent(
                 id: bodyScanID, categoryId: meditationID,
-                title: "Body Scan Meditation", contentDescription: "Full body relaxation — releases physical tension",
+                title: "Body Scan Meditation",
+                contentDescription: "Full body relaxation — releases physical tension",
                 caption: "Full Body Relaxation",
                 mediaURL: "meditation_4.mp4", mediaType: "video",
                 durationSeconds: 1200, difficultyLevel: "beginner",
-                imageurl: "body_scan_list",
-                orderIndex: 4, lastPlaybackSeconds: 0
+                imageurl: "body_scan_list", lastPlaybackSeconds: 0
             ),
             MindEaseCategoryContent(
                 id: guidedVisID, categoryId: meditationID,
-                title: "Guided Visualisation", contentDescription: "Positive imagery — reduces cortisol levels",
+                title: "Guided Visualisation",
+                contentDescription: "Positive imagery — reduces cortisol levels",
                 caption: "Positive Imagery",
                 mediaURL: "meditation_5.mp4", mediaType: "video",
                 durationSeconds: 900, difficultyLevel: "intermediate",
-                imageurl: "guided_vis_list",
-                orderIndex: 5, lastPlaybackSeconds: 0
+                imageurl: "guided_vis_list", lastPlaybackSeconds: 0
             ),
 
-            // ── Relaxing Sounds ───────────────────────────────────────────────
+            // ── Relaxing Sounds 
             MindEaseCategoryContent(
                 id: oceanWavesID, categoryId: soundsID,
-                title: "Ocean Waves", contentDescription: "Rhythmic ocean waves — calms the nervous system",
-                caption: "Soft ocean rhythms for deep calm",
+                title: "Ocean Waves",
+                contentDescription: "Rhythmic waves — deeply calming and sleep-inducing",
+                caption: "Rhythmic ocean waves for deep calm",
                 mediaURL: "sound_1.mp3", mediaType: "audio",
-                durationSeconds: 1800, difficultyLevel: "beginner",
-                imageurl: "ocean",
-                orderIndex: 1, lastPlaybackSeconds: 0
+                durationSeconds: 3600, difficultyLevel: "beginner",
+                imageurl: "ocean_waves_list", lastPlaybackSeconds: 0
             ),
             MindEaseCategoryContent(
                 id: forestBreezeID, categoryId: soundsID,
-                title: "Forest Breeze", contentDescription: "Gentle forest breeze — promotes deep relaxation",
-                caption: "Feel the calm of nature in every breath",
+                title: "Forest Breeze",
+                contentDescription: "Rustling leaves — reduces anxiety naturally",
+                caption: "Leaves and wind to ease anxiety",
                 mediaURL: "sound_2.mp3", mediaType: "audio",
-                durationSeconds: 1200, difficultyLevel: "beginner",
-                imageurl: "forest",
-                orderIndex: 2, lastPlaybackSeconds: 0
+                durationSeconds: 1800, difficultyLevel: "beginner",
+                imageurl: "forest_breeze_list", lastPlaybackSeconds: 0
             ),
             MindEaseCategoryContent(
                 id: birdSongsID, categoryId: soundsID,
-                title: "Bird Songs", contentDescription: "Morning birdsong — clears mental fog",
-                caption: "Wake your senses with soothing bird sounds",
+                title: "Bird Songs",
+                contentDescription: "Morning birds — uplifts mood and reduces stress",
+                caption: "Birdsong to lift mood and ease stress",
                 mediaURL: "sound_3.mp3", mediaType: "audio",
-                durationSeconds: 900, difficultyLevel: "beginner",
-                imageurl: "bird",
-                orderIndex: 3, lastPlaybackSeconds: 0
+                durationSeconds: 1200, difficultyLevel: "beginner",
+                imageurl: "bird_songs_list", lastPlaybackSeconds: 0
             ),
             MindEaseCategoryContent(
                 id: deepSleepID, categoryId: soundsID,
-                title: "Deep Sleep Music", contentDescription: "432 Hz binaural tones — improves sleep quality",
+                title: "Deep Sleep Music",
+                contentDescription: "432 Hz binaural tones — improves sleep quality",
                 caption: "432 Hz binaural tones for better sleep",
                 mediaURL: "sound_4.mp3", mediaType: "audio",
                 durationSeconds: 3600, difficultyLevel: "beginner",
-                imageurl: "deep_sleep_list",
-                orderIndex: 4, lastPlaybackSeconds: 0
+                imageurl: "deep_sleep_list", lastPlaybackSeconds: 0
             ),
             MindEaseCategoryContent(
                 id: eveningWindID, categoryId: soundsID,
-                title: "Evening Wind Down", contentDescription: "Soft wind chimes — perfect for winding down",
+                title: "Evening Wind Down",
+                contentDescription: "Soft wind chimes — perfect for winding down",
                 caption: "Soft wind chimes ideal before sleep",
                 mediaURL: "sound_5.mp3", mediaType: "audio",
                 durationSeconds: 1200, difficultyLevel: "beginner",
-                imageurl: "evening_wind_list",
-                orderIndex: 5, lastPlaybackSeconds: 0
+                imageurl: "evening_wind_list", lastPlaybackSeconds: 0
             ),
         ]
     }
 
-    // MARK: - Seed (called after AppDataStore is ready)
-
+    // MARK: - Seed All (called after AppDataStore is ready)
     func seedAll(userId: UUID, userPlans: [UserPlan]) {
         seedTodaysPlan(userId: userId, userPlans: userPlans)
-        seedHistoricalMindfulData(userId: userId, userPlans: userPlans)
+        // Historical mindful data removed — starts empty, user creates entries
     }
 
-    // ── Today's Plan ──────────────────────────────────────────────────────────
-
+    // MARK: - Today's Plan
     private func seedTodaysPlan(userId: UUID, userPlans: [UserPlan]) {
         guard let plan = userPlans.first(where: { $0.userId == userId }) else { return }
         let today = Date()
 
-        // (contentId, categoryId, minutesTarget, orderIndex)
-        let entries: [(UUID, UUID, Int, Int)] = [
-            (bhramariID,    meditationID, plan.meditationMinutesPerDay, 1),
-            (anulomID,      meditationID, 15,                           2),
-            (uttanasanaID,  yogaID,       plan.yogaMinutesPerDay,       3),
-            (mukhaID,       yogaID,       15,                           4),
-            (balayamID,     yogaID,       10,                           5),
-            (oceanWavesID,  soundsID,     plan.soundMinutesPerDay,      6),
-            (forestBreezeID,soundsID,     10,                           7),
+        let entries: [(UUID, UUID, Int)] = [
+            (bhramariID,     meditationID, plan.meditationMinutesPerDay),
+            (anulomID,       meditationID, 15),
+            (uttanasanaID,   yogaID,       plan.yogaMinutesPerDay),
+            (mukhaID,        yogaID,       15),
+            (balayamID,      yogaID,       10),
+            (oceanWavesID,   soundsID,     plan.soundMinutesPerDay),
+            (forestBreezeID, soundsID,     10),
         ]
 
-        todaysPlans = entries.map { (contentId, categoryId, target, order) in
+        todaysPlans = entries.map { contentId, categoryId, target in
             TodaysPlan(
                 id: UUID(), userId: userId, planDate: today,
                 contentId: contentId, categoryId: categoryId,
                 planId: plan.planId,
                 minutesTarget: target, minutesCompleted: 0,
-                orderIndex: order, isCompleted: false
+                isCompleted: false
             )
         }
     }
 
-    // ── Historical data (ring calendar fill) ─────────────────────────────────
-
+    // MARK: - Historical Data
     private func seedHistoricalMindfulData(userId: UUID, userPlans: [UserPlan]) {
         let cal    = Calendar.current
-        let raw    = Double(dailyMindfulTarget(userPlans: userPlans))
+        let raw    = Double(dailyMindfulTarget)
         let target = min(60.0, max(15.0, raw))
 
-        // (daysAgo, fractionOfDailyTarget)
         let dayData: [(Int, Double)] = [
             (1, 1.00), (2, 0.80), (3, 0.95),
             (4, 0.00), (5, 0.70), (6, 0.90),
@@ -281,7 +268,7 @@ class MindEaseDataStore {
 
         for (daysAgo, fraction) in dayData {
             guard fraction > 0,
-                  let pastDate = cal.date(byAdding: .day, value: -daysAgo, to: Date())
+                  let pastDate = cal.date(byAdding: .day, value: -daysAgo, to: .now)
             else { continue }
 
             let dayStart  = cal.startOfDay(for: pastDate)
@@ -291,7 +278,7 @@ class MindEaseDataStore {
 
             mindfulSessions.append(MindfulSession(
                 id: UUID(), userId: userId,
-                contentId: bhramariID,          // any stable contentId is fine here
+                contentId: bhramariID,
                 sessionDate: dayStart, minutesCompleted: minutes,
                 startTime: startTime, endTime: endTime
             ))
@@ -299,8 +286,6 @@ class MindEaseDataStore {
     }
 
     // MARK: - Computed Daily Target
-
-    /// Live target — reads from parent store (used by views)
     var dailyMindfulTarget: Int {
         guard
             let store = parentStore,
@@ -309,80 +294,94 @@ class MindEaseDataStore {
         return plan.meditationMinutesPerDay + plan.yogaMinutesPerDay + plan.soundMinutesPerDay
     }
 
-    /// Overload used during seeding (parent not yet wired up)
-    func dailyMindfulTarget(userPlans: [UserPlan]) -> Int {
-        guard let plan = userPlans.first(where: { $0.userId == currentUserId }) else { return 30 }
-        return plan.meditationMinutesPerDay + plan.yogaMinutesPerDay + plan.soundMinutesPerDay
+    // MARK: - Query Helpers
+    func sessions(for date: Date) -> [MindfulSession] {
+        return mindfulSessions.filter {
+            $0.userId == currentUserId &&
+            Calendar.current.isDate($0.sessionDate, inSameDayAs: date)
+        }
     }
-
-    // MARK: - Helpers  (same signatures all views depend on)
 
     func mindfulMinutes(for date: Date) -> Int {
-        let dayStart = Calendar.current.startOfDay(for: date)
-        return mindfulSessions
-            .filter {
-                $0.userId == currentUserId &&
-                Calendar.current.startOfDay(for: $0.sessionDate) == dayStart
-            }
-            .reduce(0) { $0 + $1.minutesCompleted }
+        sessions(for: date).reduce(0) { $0 + $1.minutesCompleted }
     }
 
-    func getContentItems(for categoryId: UUID) -> [MindEaseCategoryContent] {
-        mindEaseCategoryContents
-            .filter { $0.categoryId == categoryId }
-            .sorted { $0.orderIndex < $1.orderIndex }
-    }
-
-    func todaysMindfulMinutes() -> Int { mindfulMinutes(for: Date()) }
+    func todaysMindfulMinutes() -> Int { mindfulMinutes(for: .now) }
 
     func weeklyMindfulMinutes() -> [Int] {
         let cal = Calendar.current
         return (0..<7).map { daysAgo -> Int in
-            let day = cal.startOfDay(for: cal.date(byAdding: .day, value: -daysAgo, to: Date())!)
-            return mindfulSessions
-                .filter {
-                    $0.userId == currentUserId &&
-                    cal.startOfDay(for: $0.sessionDate) == day
-                }
-                .reduce(0) { $0 + $1.minutesCompleted }
+            guard let day = cal.date(byAdding: .day, value: -daysAgo, to: .now) else { return 0 }
+            return mindfulMinutes(for: day)
         }.reversed()
     }
 
-    // MARK: - User Actions
-
-    func startSession(contentId: UUID) {
-        sessionStartTimes[contentId] = Date()
+    func getContentItems(for categoryId: UUID) -> [MindEaseCategoryContent] {
+        mindEaseCategoryContents.filter { $0.categoryId == categoryId }
     }
 
-    @discardableResult
-    func completeSession(contentId: UUID, minutesCompleted: Int) -> ActionResult {
-        guard minutesCompleted > 0 else {
-            return .blocked(reason: "Session too short to log (< 1 minute).")
-        }
+    // OPTIMIZED LOOKUPS: One private helper to find the model once
+    private func contentForSession(_ session: MindfulSession) -> MindEaseCategoryContent? {
+        mindEaseCategoryContents.first { $0.id == session.contentId }
+    }
 
-        let startTime = sessionStartTimes[contentId] ?? Calendar.current.date(
-            byAdding: .minute, value: -minutesCompleted, to: Date())!
-        sessionStartTimes.removeValue(forKey: contentId)
+    func sessionIcon(for session: MindfulSession) -> String {
+        guard let content = contentForSession(session),
+              let category = mindEaseCategories.first(where: { $0.id == content.categoryId })
+        else { return "brain.head.profile" }
+        return category.cardIconName
+    }
 
-        mindfulSessions.append(MindfulSession(
-            id: UUID(), userId: currentUserId,
-            contentId: contentId, sessionDate: Date(),
-            minutesCompleted: minutesCompleted,
-            startTime: startTime, endTime: Date()
-        ))
+    func contentTitle(for session: MindfulSession) -> String {
+        contentForSession(session)?.title ?? "Session"
+    }
 
+    func categoryName(for session: MindfulSession) -> String {
+        guard let content = contentForSession(session),
+              let category = mindEaseCategories.first(where: { $0.id == content.categoryId })
+        else { return "MindEase" }
+        return category.title
+    }
+
+    // MARK: - Private Plan Update Helper
+    private func updatePlanAndPlayback(contentId: UUID, minutesCompleted: Int) {
         if let idx = todaysPlans.firstIndex(where: {
             $0.userId == currentUserId &&
             $0.contentId == contentId &&
             Calendar.current.isDateInToday($0.planDate)
         }) {
             todaysPlans[idx].minutesCompleted = minutesCompleted
-            todaysPlans[idx].isCompleted = minutesCompleted >= todaysPlans[idx].minutesTarget
+            todaysPlans[idx].isCompleted       = minutesCompleted >= todaysPlans[idx].minutesTarget
         }
 
         if let idx = mindEaseCategoryContents.firstIndex(where: { $0.id == contentId }) {
             mindEaseCategoryContents[idx].lastPlaybackSeconds = minutesCompleted * 60
         }
+    }
+
+    // MARK: - User Actions
+    func startSession(contentId: UUID) {
+        sessionStartTimes[contentId] = .now
+    }
+
+    func completeSession(contentId: UUID, minutesCompleted: Int) -> ActionResult {
+        guard minutesCompleted > 0 else {
+            return .blocked(reason: "Session too short to log (< 1 minute).")
+        }
+
+        let now       = Date.now
+        let startTime = sessionStartTimes[contentId] ?? Calendar.current.date(
+            byAdding: .minute, value: -minutesCompleted, to: now)!
+        sessionStartTimes.removeValue(forKey: contentId)
+
+        mindfulSessions.append(MindfulSession(
+            id: UUID(), userId: currentUserId,
+            contentId: contentId, sessionDate: now,
+            minutesCompleted: minutesCompleted,
+            startTime: startTime, endTime: now
+        ))
+
+        updatePlanAndPlayback(contentId: contentId, minutesCompleted: minutesCompleted)
 
         let target = todaysPlans.first(where: {
             $0.userId == currentUserId && $0.contentId == contentId
@@ -394,20 +393,122 @@ class MindEaseDataStore {
     }
 
     func logMindfulSession(contentId: UUID, minutesCompleted: Int) {
-        let now = Date()
+        guard minutesCompleted > 0 else { return }
+        let now = Date.now
         mindfulSessions.append(MindfulSession(
             id: UUID(), userId: currentUserId, contentId: contentId,
             sessionDate: now, minutesCompleted: minutesCompleted,
             startTime: Calendar.current.date(byAdding: .minute, value: -minutesCompleted, to: now)!,
             endTime: now
         ))
-        if let idx = todaysPlans.firstIndex(where: {
-            $0.userId == currentUserId &&
-            $0.contentId == contentId &&
-            Calendar.current.isDateInToday($0.planDate)
-        }) {
-            todaysPlans[idx].minutesCompleted = minutesCompleted
-            todaysPlans[idx].isCompleted = minutesCompleted >= todaysPlans[idx].minutesTarget
-        }
+        updatePlanAndPlayback(contentId: contentId, minutesCompleted: minutesCompleted)
+    }
+}
+
+// MARK: - Shared Colours
+extension Color {
+    static let mindEasePurple = Color(red: 0.40, green: 0.30, blue: 0.85)
+}
+
+// MARK: - Shared Time Helpers
+extension Date {
+    func mindEaseFormatted(_ format: String) -> String {
+        return self.formatted(.dateTime.hour().minute())
+    }
+}
+
+// MARK: - ViewModifiers
+struct MindEaseCardStyle: ViewModifier {
+    var cornerRadius: CGFloat = 18
+    var shadowRadius: CGFloat = 10
+    var shadowY: CGFloat = 4
+
+    func body(content: Content) -> some View {
+        content
+            .background(.background) // Modern: Use system background directly
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .shadow(color: .black.opacity(0.06), radius: shadowRadius, x: 0, y: shadowY)
+    }
+}
+
+extension View {
+    func mindEaseCard(cornerRadius: CGFloat = 18,
+                      shadowRadius: CGFloat = 10,
+                      shadowY: CGFloat = 4) -> some View {
+        modifier(MindEaseCardStyle(cornerRadius: cornerRadius,
+                                   shadowRadius: shadowRadius,
+                                   shadowY: shadowY))
+    }
+}
+
+extension MindEaseCategoryContent {
+    var mediaIcon: String { mediaType == "audio" ? "waveform" : "play.fill" }
+
+    var titleHue: Double {
+        let hash = title.unicodeScalars.reduce(0) { ($0 &* 31) &+ Int($1.value) }
+        return Double(abs(hash) % 360) / 360.0
+    }
+
+    var heroGradientColors: [Color] {
+        [
+            Color(hue: titleHue, saturation: 0.65, brightness: 0.72),
+            Color(hue: (titleHue + 0.14).truncatingRemainder(dividingBy: 1),
+                  saturation: 0.50, brightness: 0.48),
+        ]
+    }
+
+    var rowGradientColors: [Color] {
+        [
+            Color(hue: titleHue, saturation: 0.50, brightness: 0.65),
+            Color(hue: (titleHue + 0.07).truncatingRemainder(dividingBy: 1),
+                  saturation: 0.40, brightness: 0.50),
+        ]
+    }
+}
+
+struct MindEaseSectionHeaderStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .font(.system(size: 22, weight: .bold))
+            .padding(.horizontal, 20)
+            .scrollTransition(.animated) { c, p in
+                c.opacity(p.isIdentity ? 1 : 0)
+                 .offset(x: p.isIdentity ? 0 : -20)
+            }
+    }
+}
+
+extension View {
+    func mindEaseSectionHeader() -> some View {
+        modifier(MindEaseSectionHeaderStyle())
+    }
+}
+
+struct MindEaseStatValue: ViewModifier {
+    var size: CGFloat = 28
+
+    func body(content: Content) -> some View {
+        content
+            .font(.system(size: size, weight: .bold))
+            .foregroundColor(.mindEasePurple)
+    }
+}
+
+extension View {
+    func mindEaseStatValue(size: CGFloat = 28) -> some View {
+        modifier(MindEaseStatValue(size: size))
+    }
+}
+
+struct MindEasePageBackground: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .background(Color.hcCream.ignoresSafeArea())
+    }
+}
+
+extension View {
+    func mindEasePageBackground() -> some View {
+        modifier(MindEasePageBackground())
     }
 }

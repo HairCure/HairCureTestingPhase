@@ -21,6 +21,7 @@ import SwiftUI
 struct AuthLandingView: View {
     let onProceed: () -> Void
 
+    @Environment(AppDataStore.self) private var store
     @State private var showLogin    = false
     @State private var showRegister = false
 
@@ -56,6 +57,11 @@ struct AuthLandingView: View {
                         }
 
                         Button("Continue as a guest") {
+                            store.createUser(
+                                name: "Guest",
+                                email: "",
+                                authProvider: .guest
+                            )
                             onProceed()
                         }
                         .font(.system(size: 15, weight: .medium))
@@ -92,6 +98,7 @@ struct AuthLandingView: View {
 struct LoginView: View {
     let onProceed: () -> Void
 
+    @Environment(AppDataStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     @State private var email        = ""
@@ -150,7 +157,14 @@ struct LoginView: View {
                     .padding(.bottom, 28)
 
                     // ── Login button ──
-                    Button("Login") { onProceed() }
+                    Button("Login") {
+                        store.createUser(
+                            name: email.components(separatedBy: "@").first ?? "User",
+                            email: email,
+                            authProvider: .google
+                        )
+                        onProceed()
+                    }
                         .hcPrimaryButton()
                         .padding(.bottom, 28)
 
@@ -194,6 +208,7 @@ struct LoginView: View {
 struct RegisterView: View {
     let onProceed: () -> Void
 
+    @Environment(AppDataStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     @State private var mobile          = ""
@@ -236,7 +251,15 @@ struct RegisterView: View {
                         .padding(.bottom, 28)
 
                     // ── Register button ──
-                    Button("Register") { onProceed() }
+                    Button("Register") {
+                        store.createUser(
+                            name: email.components(separatedBy: "@").first ?? "User",
+                            email: email,
+                            phone: mobile.isEmpty ? nil : mobile,
+                            authProvider: .google
+                        )
+                        onProceed()
+                    }
                         .hcPrimaryButton()
                         .padding(.bottom, 28)
 

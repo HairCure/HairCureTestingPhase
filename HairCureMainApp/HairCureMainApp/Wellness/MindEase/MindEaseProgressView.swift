@@ -1,10 +1,5 @@
 //
 //  MindEaseProgressView.swift
-//  HairCureTesting1
-//
-//  Profile → MindEase Progress
-//  4-day tappable ring selector — tap a ring or pick a date via calendar icon
-//  to view that day's session detail panel.
 //
 import SwiftUI
 
@@ -14,88 +9,98 @@ struct MindEaseProgressView: View {
     @Environment(AppDataStore.self) private var store
     @Environment(MindEaseDataStore.self) private var mindEaseStore
 
-    private let purple = Color(red: 0.40, green: 0.30, blue: 0.85)
-
-    // 4 days: oldest → newest so Today is on the RIGHT
     private var ringDates: [Date] {
-        let cal   = Calendar.current
-        let today = cal.startOfDay(for: Date())
-        return (0..<4).compactMap { cal.date(byAdding: .day, value: -$0, to: today) }.reversed()
+        let calendar = Calendar.current
+        let today    = calendar.startOfDay(for: Date())
+        return (0..<4).compactMap { calendar.date(byAdding: .day, value: -$0, to: today) }.reversed()
     }
 
-    @State private var selectedDate: Date = Calendar.current.startOfDay(for: Date())
-    @State private var showDatePicker      = false
+    @State private var selectedDate   = Calendar.current.startOfDay(for: Date())
+    @State private var showDatePicker = false
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 20) {
 
-                // ── Today summary card ──
-                todaySummaryCard
+                ProgressTodaySummaryCard(userId: store.currentUserId)
                     .padding(.horizontal, 20)
                     .padding(.top, 4)
                     .scrollTransition(.animated.threshold(.visible(0.2))) { c, p in
                         c.opacity(p.isIdentity ? 1 : 0).scaleEffect(p.isIdentity ? 1 : 0.96)
                     }
 
-                // ── 4-day tappable ring selector ──
-                ringSelectorSection
-                    .padding(.horizontal, 20)
-                    .scrollTransition(.animated.threshold(.visible(0.2))) { c, p in
-                        c.opacity(p.isIdentity ? 1 : 0.2).scaleEffect(p.isIdentity ? 1 : 0.95)
-                    }
+                ProgressRingSelectorSection(
+                    ringDates: ringDates,
+                    selectedDate: $selectedDate,
+                    showDatePicker: $showDatePicker
+                )
+                .padding(.horizontal, 20)
+                .scrollTransition(.animated.threshold(.visible(0.2))) { c, p in
+                    c.opacity(p.isIdentity ? 1 : 0.2).scaleEffect(p.isIdentity ? 1 : 0.95)
+                }
 
-                // ── Selected day detail ──
-                selectedDayDetail
-                    .padding(.horizontal, 20)
-                    .scrollTransition(.animated.threshold(.visible(0.1))) { c, p in
-                        c.opacity(p.isIdentity ? 1 : 0).offset(y: p.isIdentity ? 0 : 18)
-                    }
+                ProgressSelectedDayDetail(
+                    selectedDate: selectedDate,
+                    userId: store.currentUserId
+                )
+                .padding(.horizontal, 20)
+                .scrollTransition(.animated.threshold(.visible(0.1))) { c, p in
+                    c.opacity(p.isIdentity ? 1 : 0).offset(y: p.isIdentity ? 0 : 18)
+                }
 
                 Spacer(minLength: 32)
             }
             .padding(.top, 8)
         }
         .scrollBounceBehavior(.basedOnSize)
-        .background(Color.hcCream.ignoresSafeArea())
+        // ← hcCream from HairCure via the shared ViewModifier
+        .mindEasePageBackground()
         .navigationTitle("MindEase Progress")
         .navigationBarTitleDisplayMode(.inline)
     }
+}
 
-    // MARK: - Today summary card
+// MARK: - Today Summary Card
 
-    private var todaySummaryCard: some View {
-        let done   = mindEaseStore.mindfulMinutes(for: Date())
-        let target = max(1, mindEaseStore.dailyMindfulTarget)
-        let prog   = min(Double(done) / Double(target), 1.0)
+struct ProgressTodaySummaryCard: View {
+    @Environment(AppDataStore.self) private var store
+    @Environment(MindEaseDataStore.self) private var mindEaseStore
+    let userId: UUID
 
-        let cal        = Calendar.current
-        let todayStart = cal.startOfDay(for: Date())
-        let sessions   = mindEaseStore.mindfulSessions.filter {
-            $0.userId == store.currentUserId &&
-            cal.startOfDay(for: $0.sessionDate) == todayStart
+    private var done:     Int    { mindEaseStore.mindfulMinutes(for: Date()) }
+    private var target:   Int    { max(1, mindEaseStore.dailyMindfulTarget) }
+    private var progress: Double { min(Double(done) / Double(target), 1.0) }
+
+    private var todaySessions: [MindfulSession] {
+        mindEaseStore.sessions(for: Date()).filter { $0.userId == userId }
+    }
+
+    private func categoryMinutes(for categoryTitle: String) -> Int {
+        todaySessions.filter { session in
+            guard
+                let content = mindEaseStore.mindEaseCategoryContents.first(where: { $0.id == session.contentId }),
+                let cat     = mindEaseStore.mindEaseCategories.first(where: { $0.id == content.categoryId })
+            else { return false }
+            return cat.title == categoryTitle
         }
-        let catMins: [(name: String, mins: Int, icon: String, color: Color)] = [
-            ("Meditation", sessions.filter { rowContent(for: $0.contentId).category == "Meditation" }.reduce(0) { $0 + $1.minutesCompleted }, "brain.head.profile", Color(red: 0.55, green: 0.32, blue: 0.12)),
-            ("Yoga",       sessions.filter { rowContent(for: $0.contentId).category == "Yoga" }.reduce(0)       { $0 + $1.minutesCompleted }, "figure.yoga",         Color(red: 0.26, green: 0.20, blue: 0.16)),
-            ("Sounds",     sessions.filter { rowContent(for: $0.contentId).category != "Meditation" && rowContent(for: $0.contentId).category != "Yoga" }.reduce(0) { $0 + $1.minutesCompleted }, "waveform", Color(red: 0.08, green: 0.30, blue: 0.30))
-        ].filter { $0.mins > 0 }
+        .reduce(0) { $0 + $1.minutesCompleted }
+    }
 
-        return HStack(spacing: 20) {
+    private var categoryChips: [(name: String, mins: Int, icon: String, color: Color)] {
+        [
+            ("Meditation", categoryMinutes(for: "Meditation"), "brain.head.profile", Color(red: 0.55, green: 0.32, blue: 0.12)),
+            ("Yoga",       categoryMinutes(for: "Yoga"),       "figure.yoga",        Color(red: 0.26, green: 0.20, blue: 0.16)),
+            ("Sounds",     categoryMinutes(for: "Relaxing Sounds"), "waveform",       Color(red: 0.08, green: 0.30, blue: 0.30)),
+        ].filter { $0.mins > 0 }
+    }
+
+    var body: some View {
+        HStack(spacing: 20) {
             ZStack {
-                Circle()
-                    .stroke(purple.opacity(0.15), lineWidth: 10)
-                    .frame(width: 80, height: 80)
-                Circle()
-                    .trim(from: 0, to: prog)
-                    .stroke(purple, style: StrokeStyle(lineWidth: 10, lineCap: .round))
-                    .frame(width: 80, height: 80)
-                    .rotationEffect(.degrees(-90))
-                    .animation(.easeInOut(duration: 0.6), value: prog)
+                MindEaseProgressRing(progress: progress, lineWidth: 10, diameter: 80)
                 VStack(spacing: 0) {
                     Text("\(done)")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundColor(purple)
+                        .mindEaseStatValue(size: 17)
                     Text("min")
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(.secondary)
@@ -108,19 +113,19 @@ struct MindEaseProgressView: View {
                     .foregroundColor(.secondary)
                 HStack(alignment: .lastTextBaseline, spacing: 4) {
                     Text("\(done)")
-                        .font(.system(size: 28, weight: .bold))
+                        .mindEaseStatValue()
                     Text("/ \(target) min")
                         .font(.system(size: 14))
                         .foregroundColor(.secondary)
                 }
-                if catMins.isEmpty {
+                if categoryChips.isEmpty {
                     Text("No sessions logged yet")
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
                 } else {
                     HStack(spacing: 8) {
-                        ForEach(catMins, id: \.name) { item in
-                            MindCategoryChip(icon: item.icon, label: "\(item.mins)m", color: item.color)
+                        ForEach(categoryChips, id: \.name) { item in
+                            ProgressCategoryChip(icon: item.icon, label: "\(item.mins)m", color: item.color)
                         }
                     }
                 }
@@ -128,125 +133,157 @@ struct MindEaseProgressView: View {
             Spacer()
         }
         .padding(18)
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 4)
+        // ← replaces .background / .clipShape / .shadow triple
+        .mindEaseCard()
     }
+}
 
-    // MARK: - 4-day tappable ring selector
+// MARK: - Ring Selector Section
 
-    private var ringSelectorSection: some View {
-        let cal    = Calendar.current
-        let target = Double(max(1, mindEaseStore.dailyMindfulTarget))
+struct ProgressRingSelectorSection: View {
+    @Environment(MindEaseDataStore.self) private var mindEaseStore
+    let ringDates: [Date]
+    @Binding var selectedDate: Date
+    @Binding var showDatePicker: Bool
 
-        return VStack(alignment: .leading, spacing: 12) {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Tap a day to view details")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.secondary)
                 Spacer()
-                Button {
-                    showDatePicker = true
-                } label: {
+                Button { showDatePicker = true } label: {
                     Image(systemName: "calendar")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(purple)
+                        .foregroundColor(.mindEasePurple)
                 }
                 .sheet(isPresented: $showDatePicker) {
-                    DatePickerSheet(selectedDate: $selectedDate,
-                                    accentColor: purple,
-                                    isPresented: $showDatePicker)
+                    DatePickerSheet(
+                        selectedDate: $selectedDate,
+                        accentColor: .mindEasePurple,
+                        isPresented: $showDatePicker
+                    )
                 }
             }
 
             HStack(spacing: 0) {
                 ForEach(ringDates, id: \.self) { date in
-                    let isSelected = cal.startOfDay(for: selectedDate) == cal.startOfDay(for: date)
-                    let mins       = mindEaseStore.mindfulMinutes(for: date)
-                    let prog       = min(Double(mins) / target, 1.0)
-
-                    Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            selectedDate = cal.startOfDay(for: date)
-                        }
-                    } label: {
-                        VStack(spacing: 8) {
-                            ZStack {
-                                Circle()
-                                    .stroke(
-                                        isSelected ? purple.opacity(0.25) : Color.gray.opacity(0.15),
-                                        lineWidth: isSelected ? 7 : 5
-                                    )
-                                    .frame(width: 58, height: 58)
-                                if prog > 0 {
-                                    Circle()
-                                        .trim(from: 0, to: prog)
-                                        .stroke(purple,
-                                                style: StrokeStyle(lineWidth: isSelected ? 7 : 5,
-                                                                   lineCap: .round))
-                                        .frame(width: 58, height: 58)
-                                        .rotationEffect(.degrees(-90))
-                                        .animation(.easeInOut(duration: 0.4), value: prog)
-                                }
-                                if mins > 0 {
-                                    VStack(spacing: 0) {
-                                        Text("\(mins)")
-                                            .font(.system(size: 12, weight: .bold))
-                                            .foregroundColor(isSelected ? purple : .primary)
-                                        Text("min")
-                                            .font(.system(size: 9))
-                                            .foregroundColor(.secondary)
-                                    }
-                                } else {
-                                    Image(systemName: "brain.head.profile")
-                                        .font(.system(size: 13))
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            .scaleEffect(isSelected ? 1.08 : 1.0)
-                            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isSelected)
-
-                            Text(shortDayLabel(date))
-                                .font(.system(size: 12, weight: isSelected ? .bold : .regular))
-                                .foregroundColor(isSelected ? purple : .secondary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .frame(maxWidth: .infinity)
+                    ProgressRingDayButton(
+                        date: date,
+                        selectedDate: $selectedDate,
+                        dailyTarget: mindEaseStore.dailyMindfulTarget,
+                        minutesForDate: { mindEaseStore.mindfulMinutes(for: $0) }
+                    )
                 }
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 8)
-            .background(Color(.systemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 3)
+            .mindEaseCard(cornerRadius: 18, shadowRadius: 8, shadowY: 3)
         }
     }
+}
 
-    // MARK: - Selected day detail panel
+// MARK: - Ring Day Button
 
-    private var selectedDayDetail: some View {
-        let cal    = Calendar.current
-        let dayStart = Calendar.current.startOfDay(for: selectedDate)
-        let sessions = mindEaseStore.mindfulSessions.filter {
-            $0.userId == store.currentUserId &&
-            Calendar.current.startOfDay(for: $0.sessionDate) == dayStart
-        }.sorted { $0.startTime < $1.startTime }
+struct ProgressRingDayButton: View {
+    let date: Date
+    @Binding var selectedDate: Date
+    let dailyTarget: Int
+    let minutesForDate: (Date) -> Int
 
-        let totalMins = sessions.reduce(0) { $0 + $1.minutesCompleted }
-        let target    = max(1, mindEaseStore.dailyMindfulTarget)
-        let progress  = min(Double(totalMins) / Double(target), 1.0)
+    private static let dayFmt: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "EEE"; return f
+    }()
 
-        let titleLabel: String = {
-            if cal.isDateInToday(selectedDate)     { return "Today" }
-            if cal.isDateInYesterday(selectedDate) { return "Yesterday" }
-            let f = DateFormatter(); f.dateFormat = "EEE, d MMM"
-            return f.string(from: selectedDate)
-        }()
+    private var cal:        Calendar { .current }
+    private var isSelected: Bool     { cal.startOfDay(for: selectedDate) == cal.startOfDay(for: date) }
+    private var mins:       Int      { minutesForDate(date) }
+    private var prog:       Double   { min(Double(mins) / Double(max(1, dailyTarget)), 1.0) }
 
-        return VStack(alignment: .leading, spacing: 0) {
+    private var dayLabel: String {
+        if cal.isDateInToday(date)     { return "Today" }
+        if cal.isDateInYesterday(date) { return "Yesterday" }
+        return Self.dayFmt.string(from: date)
+    }
 
-            // Header
+    var body: some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                selectedDate = cal.startOfDay(for: date)
+            }
+        } label: {
+            VStack(spacing: 8) {
+                ZStack {
+                    // Use MindEaseProgressRing instead of inline Circle/trim
+                    MindEaseProgressRing(
+                        progress: prog,
+                        lineWidth: isSelected ? 7 : 5,
+                        diameter: 58,
+                        trackOpacity: isSelected ? 0.25 : 0.15
+                    )
+                    .frame(width: 58, height: 58)
+
+                    if mins > 0 {
+                        VStack(spacing: 0) {
+                            Text("\(mins)")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(isSelected ? .mindEasePurple : .primary)
+                            Text("min")
+                                .font(.system(size: 9))
+                                .foregroundColor(.secondary)
+                        }
+                    } else {
+                        Image(systemName: "brain.head.profile")
+                            .font(.system(size: 13))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .scaleEffect(isSelected ? 1.08 : 1.0)
+                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isSelected)
+
+                Text(dayLabel)
+                    .font(.system(size: 12, weight: isSelected ? .bold : .regular))
+                    .foregroundColor(isSelected ? .mindEasePurple : .secondary)
+            }
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Selected Day Detail
+//
+// The straight linear progress bar has been removed.
+// The small ring in the header provides sufficient visual progress cue.
+
+struct ProgressSelectedDayDetail: View {
+    @Environment(AppDataStore.self) private var store
+    @Environment(MindEaseDataStore.self) private var mindEaseStore
+    let selectedDate: Date
+    let userId: UUID
+
+    private var sessions: [MindfulSession] {
+        mindEaseStore.sessions(for: selectedDate)
+            .filter { $0.userId == userId }
+            .sorted { $0.startTime < $1.startTime }
+    }
+
+    private var totalMins: Int    { sessions.reduce(0) { $0 + $1.minutesCompleted } }
+    private var target:    Int    { max(1, mindEaseStore.dailyMindfulTarget) }
+    private var progress:  Double { min(Double(totalMins) / Double(target), 1.0) }
+
+    private var titleLabel: String {
+        let cal = Calendar.current
+        if cal.isDateInToday(selectedDate)     { return "Today" }
+        if cal.isDateInYesterday(selectedDate) { return "Yesterday" }
+        return selectedDate.mindEaseFormatted("EEE, d MMM")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+
+            // ── Day header — ring only, no straight bar ──────────────────────
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(titleLabel)
@@ -262,34 +299,25 @@ struct MindEaseProgressView: View {
                     }
                 }
                 Spacer()
+
                 ZStack {
-                    Circle()
-                        .stroke(purple.opacity(0.15), lineWidth: 4)
-                        .frame(width: 40, height: 40)
-                    if progress > 0 {
-                        Circle()
-                            .trim(from: 0, to: progress)
-                            .stroke(purple, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                            .frame(width: 40, height: 40)
-                            .rotationEffect(.degrees(-90))
-                            .animation(.easeInOut(duration: 0.5), value: progress)
-                    }
+                    MindEaseProgressRing(progress: progress, lineWidth: 4, diameter: 40)
                     Image(systemName: "brain.head.profile")
                         .font(.system(size: 11))
-                        .foregroundColor(purple)
+                        .foregroundColor(.mindEasePurple)
                 }
             }
             .padding(.horizontal, 18)
-            .padding(.top, 16)
-            .padding(.bottom, sessions.isEmpty ? 16 : 10)
+            .padding(.vertical, 16)
 
+            // ── Session rows ─────────────────────────────────────────────────
             if !sessions.isEmpty {
                 Divider().padding(.horizontal, 18)
 
                 VStack(spacing: 0) {
-                    ForEach(sessions) { session in
-                        SessionDetailRow(session: session, purple: purple)
-                        if session.id != sessions.last?.id {
+                    ForEach(Array(sessions.enumerated()), id: \.element.id) { idx, session in
+                        ProgressSessionDetailRow(session: session)
+                        if idx < sessions.count - 1 {
                             Divider().padding(.leading, 74)
                         }
                     }
@@ -297,116 +325,136 @@ struct MindEaseProgressView: View {
                 .padding(.bottom, 8)
             }
         }
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 3)
+        .mindEaseCard(cornerRadius: 18, shadowRadius: 8, shadowY: 3)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: selectedDate)
-    }
-
-    // MARK: - Category helpers
-
-    private func rowContent(for contentId: UUID) -> (title: String, category: String) {
-        guard let c = mindEaseStore.mindEaseCategoryContents.first(where: { $0.id == contentId }),
-              let cat = mindEaseStore.mindEaseCategories.first(where: { $0.id == c.categoryId })
-        else { return ("Mindful Session", "Relaxation") }
-        return (c.title, cat.title)
-    }
-
-    private func rowIcon(for contentId: UUID) -> String {
-        guard let c = mindEaseStore.mindEaseCategoryContents.first(where: { $0.id == contentId }),
-              let cat = mindEaseStore.mindEaseCategories.first(where: { $0.id == c.categoryId })
-        else { return "figure.mind.and.body" } // Default icon if not found
-        switch cat.title {
-        case "Yoga":       return "figure.yoga"
-        case "Meditation": return "brain.head.profile"
-        default:           return "waveform"
-        }
-    }
-
-    private func shortDayLabel(_ date: Date) -> String {
-        let cal = Calendar.current
-        if cal.isDateInToday(date)     { return "Today" }
-        if cal.isDateInYesterday(date) { return "Yesterday" }
-        let f = DateFormatter(); f.dateFormat = "EEE"
-        return f.string(from: date)
     }
 }
 
-// MARK: - Session detail row
+// MARK: - Session Detail Row
 
-private struct SessionDetailRow: View {
-    @Environment(AppDataStore.self) private var store
+struct ProgressSessionDetailRow: View {
     @Environment(MindEaseDataStore.self) private var mindEaseStore
     let session: MindfulSession
-    let purple: Color
 
-    private var contentInfo: (title: String, icon: String, catName: String) {
-        guard let c   = mindEaseStore.mindEaseCategoryContents.first(where: { $0.id == session.contentId }),
-              let cat = mindEaseStore.mindEaseCategories.first(where: { $0.id == c.categoryId })
-        else { return ("Session", "figure.mind.and.body", "MindEase") }
-        let icon: String
-        switch cat.title {
-        case "Yoga":       icon = "figure.yoga"
-        case "Meditation": icon = "brain.head.profile"
-        default:           icon = "waveform"
-        }
-        return (c.title, icon, cat.title)
-    }
-
-    private var timeLabel: String {
-        let f = DateFormatter(); f.dateFormat = "h:mm a"
-        return f.string(from: session.startTime)
-    }
+    private static let timeFmt: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "h:mm a"; return f
+    }()
 
     var body: some View {
-        let info = contentInfo
         HStack(spacing: 14) {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(purple.opacity(0.10))
-                .frame(width: 40, height: 40)
-                .overlay(
-                    Image(systemName: info.icon)
-                        .font(.system(size: 18))
-                        .foregroundColor(purple)
-                )
-                .padding(.leading, 18)
+            MindEaseSessionIconView(
+                iconName: mindEaseStore.sessionIcon(for: session),
+                size: 40,
+                cornerRadius: 8
+            )
+            .padding(.leading, 18)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(info.title)
+                Text(mindEaseStore.contentTitle(for: session))
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.primary)
-                Text("\(info.catName) · \(timeLabel)")
+                Text("\(mindEaseStore.categoryName(for: session)) · \(Self.timeFmt.string(from: session.startTime))")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
             }
             Spacer()
             Text("\(session.minutesCompleted) min")
                 .font(.system(size: 14, weight: .bold))
-                .foregroundColor(purple)
+                .foregroundColor(.mindEasePurple)
                 .padding(.trailing, 18)
         }
         .padding(.vertical, 12)
     }
 }
 
-// MARK: - Category chip
+// MARK: - Category Chip
 
-private struct MindCategoryChip: View {
-    let icon: String; let label: String; let color: Color
+struct ProgressCategoryChip: View {
+    let icon: String
+    let label: String
+    let color: Color
+
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 10, weight: .bold)).foregroundColor(color)
-            Text(label).font(.system(size: 10, weight: .medium)).foregroundColor(.secondary)
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(color)
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.secondary)
         }
-        .padding(.horizontal, 7).padding(.vertical, 4)
-        .background(color.opacity(0.12)).clipShape(Capsule())
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .background(color.opacity(0.12))
+        .clipShape(Capsule())
+    }
+}
+// MARK: - Shared Session Icon
+
+struct MindEaseSessionIconView: View {
+    let iconName: String
+    let size: CGFloat
+    let cornerRadius: CGFloat
+    var color: Color = .mindEasePurple
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(color.opacity(0.10))
+            .frame(width: size, height: size)
+            .overlay(
+                Image(systemName: iconName)
+                    .font(.system(size: size * 0.45))
+                    .foregroundColor(color)
+            )
+    }
+}
+// MARK: - Shared Progress Ring
+
+struct MindEaseProgressRing: View {
+    let progress: Double
+    let lineWidth: CGFloat
+    let diameter: CGFloat
+    var color: Color = .mindEasePurple
+    var trackOpacity: Double = 0.15
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(color.opacity(trackOpacity), lineWidth: lineWidth)
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.easeInOut(duration: 0.4), value: progress)
+        }
+        .frame(width: diameter, height: diameter)
     }
 }
 
-// MARK: - Preview
-//
-//#Preview {
-//    NavigationStack { MindEaseProgressView() }
-//    .environment(AppDataStore())
-//    .environment(MindEaseDataStore())
-//}
+// MARK: - Previews
+
+#Preview("Progress View") {
+    NavigationStack {
+        MindEaseProgressView()
+            .environment(AppDataStore())
+            .environment(MindEaseDataStore(currentUserId: UUID()))
+    }
+}
+
+#Preview("Today Summary Card") {
+    ProgressTodaySummaryCard(userId: UUID())
+        .environment(AppDataStore())
+        .environment(MindEaseDataStore(currentUserId: UUID()))
+        .padding()
+        .mindEasePageBackground()
+}
+
+#Preview("Progress Ring") {
+    HStack(spacing: 24) {
+        MindEaseProgressRing(progress: 0.0,  lineWidth: 8, diameter: 64)
+        MindEaseProgressRing(progress: 0.55, lineWidth: 8, diameter: 64)
+        MindEaseProgressRing(progress: 1.0,  lineWidth: 8, diameter: 64)
+    }
+    .padding()
+    .mindEasePageBackground()
+}

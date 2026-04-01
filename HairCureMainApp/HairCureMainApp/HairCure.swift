@@ -87,30 +87,6 @@ extension View {
     func hcInputField() -> some View { modifier(HCInputField()) }
 }
 
-// MARK: - Progress Bar (dashed segments)
-
-struct HCProgressBar: View {
-    let current: Int    // 1-based answered count
-    let total: Int
-
-    private let segmentCount = 8
-
-    var body: some View {
-        HStack(spacing: 6) {
-            ForEach(0..<segmentCount, id: \.self) { i in
-                // Use integer cross-multiplication to avoid Float rounding drift.
-                // Segment i is filled when: current / total >= (i+1) / segmentCount
-                // ↔ current * segmentCount >= (i + 1) * total
-                let filled = current * segmentCount >= (i + 1) * total
-                Capsule()
-                    .fill(filled ? Color.hcBrown : Color.hcProgressBg)
-                    .frame(height: 4)
-            }
-        }
-        .padding(.horizontal, 20)
-    }
-}
-
 // MARK: - Back Button
 
 struct HCBackButton: View {

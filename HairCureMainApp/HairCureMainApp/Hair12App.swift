@@ -1,8 +1,9 @@
 //
-//  Hair12App.swift
-//  Hair12
+//  HairCureApp.swift
+//  HairCure
 //
-//  Created by Avnish Singh on 3/24/26.
+//  Route order:
+//  auth → profileSetup → assessment → hairAnalysis → planResults → mainApp
 //
 
 import SwiftUI
@@ -23,6 +24,7 @@ struct Hair12App: App {
 
 enum AppRoute: Hashable {
     case auth
+    case profileSetup
     case assessment
     case hairAnalysis
     case planResults
@@ -37,16 +39,23 @@ struct ContentView: View {
             switch route {
             case .auth:
                 AuthLandingView {
+                    withAnimation(.easeInOut(duration: 0.3)) { route = .profileSetup }
+                }
+            case .profileSetup:
+                ProfileSetupView {
                     withAnimation(.easeInOut(duration: 0.3)) { route = .assessment }
                 }
+                .transition(.opacity)
             case .assessment:
                 AssessmentView {
                     withAnimation(.easeInOut(duration: 0.3)) { route = .hairAnalysis }
                 }
+                .transition(.opacity)
             case .hairAnalysis:
                 HairAnalysisView {
                     withAnimation(.easeInOut(duration: 0.3)) { route = .planResults }
                 }
+                .transition(.opacity)
             case .planResults:
                 PlanResultsView {
                     withAnimation(.easeInOut(duration: 0.3)) { route = .mainApp }

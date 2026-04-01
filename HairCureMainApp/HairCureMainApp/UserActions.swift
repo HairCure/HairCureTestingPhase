@@ -161,7 +161,7 @@ extension AppDataStore {
         guard let idx = assessments.lastIndex(where: { $0.userId == currentUserId }) else { return }
         let assessmentId = assessments[idx].id
         let answered = userAnswers.filter { $0.assessmentId == assessmentId }.count
-        let total    = questions.filter { $0.questionOrderIndex <= 12 }.count
+        let total    = questions.filter { $0.questionOrderIndex <= 7 }.count
         let percent  = total > 0 ? Float(answered) / Float(total) * 100 : 0
         assessments[idx].completionPercent = min(percent, 99)
     }
@@ -257,47 +257,47 @@ extension AppDataStore {
         )
     }
 
-    private func runEngineAndApply(
-        scanId: UUID,
-        stage: HairFallStage,
-        scalp: ScalpCondition,
-        density: HairDensityLevel,
-        densityPercent: Float,
-        source: AnalysisSource,
-        profile: UserProfile,
-        assessment: Assessment
-    ) -> ActionResult {
-
-        let age      = pickerValue(for: "age",    assessment: assessment, default: Float(ageFromProfile(profile)))
-        let heightCm = pickerValue(for: "height", assessment: assessment, default: profile.heightCm)
-        let weightKg = pickerValue(for: "weight", assessment: assessment, default: profile.weightKg)
-        let activity = resolvedActivityLevel(from: assessment)
-
-        let input = EngineInput(
-            userId: currentUserId,
-            assessmentId: assessment.id,
-            answers: userAnswers.filter { $0.assessmentId == assessment.id },
-            hairFallStage: stage,
-            scalpCondition: scalp,
-            hairDensityLevel: density,
-            hairDensityPercent: densityPercent,
-            analysisSource: source,
-            scalpScanId: scanId,
-            age: Int(age),
-            heightCm: heightCm,
-            weightKg: weightKg,
-            activityLevel: activity
-        )
-
-        let output = RecommendationEngine.run(input: input, store: self)
-        RecommendationEngine.applyToStore(output, store: self)
-
-        if output.userPlan.planId == "refer_doctor" {
-            return .referDoctor(message: output.planDescription.doctorReferralMessage ?? "")
-        }
-
-        return .success(message: "Plan \(output.userPlan.planId) assigned.")
-    }
+//    private func runEngineAndApply(
+//        scanId: UUID,
+//        stage: HairFallStage,
+//        scalp: ScalpCondition,
+//        density: HairDensityLevel,
+//        densityPercent: Float,
+//        source: AnalysisSource,
+//        profile: UserProfile,
+//        assessment: Assessment
+//    ) -> ActionResult {
+//
+//        let age      = pickerValue(for: "age",    assessment: assessment, default: Float(ageFromProfile(profile)))
+//        let heightCm = pickerValue(for: "height", assessment: assessment, default: profile.heightCm)
+//        let weightKg = pickerValue(for: "weight", assessment: assessment, default: profile.weightKg)
+//        let activity = resolvedActivityLevel(from: assessment)
+//
+//        let input = EngineInput(
+//            userId: currentUserId,
+//            assessmentId: assessment.id,
+//            answers: userAnswers.filter { $0.assessmentId == assessment.id },
+//            hairFallStage: stage,
+//            scalpCondition: scalp,
+//            hairDensityLevel: density,
+//            hairDensityPercent: densityPercent,
+//            analysisSource: source,
+//            scalpScanId: scanId,
+//            age: Int(age),
+//            heightCm: heightCm,
+//            weightKg: weightKg,
+//            activityLevel: activity
+//        )
+//
+//        let output = RecommendationEngine.run(input: input, store: self)
+//        RecommendationEngine.applyToStore(output, store: self)
+//
+//        if output.userPlan.planId == "refer_doctor" {
+//            return .referDoctor(message: output.planDescription.doctorReferralMessage ?? "")
+//        }
+//
+//        return .success(message: "Plan \(output.userPlan.planId) assigned.")
+//    }
 
 
     // ─────────────────────────────────────────────
@@ -649,23 +649,96 @@ extension AppDataStore {
         return answer.pickerValue ?? fallback
     }
 
-    private func resolvedActivityLevel(from assessment: Assessment) -> ActivityLevel {
-        guard let q12 = questions.first(where: { $0.questionOrderIndex == 12 }),
-              let answer = userAnswers.first(where: {
-                  $0.questionId == q12.id && $0.assessmentId == assessment.id
-              }),
-              let optionId = answer.selectedOptionId,
-              let option = questionOptions.first(where: { $0.id == optionId })
-        else { return .sedentary }
-
-        let text = option.optionText.lowercased()
-        if text.contains("very active") { return .veryActive }
-        if text.contains("moderate")   { return .moderate }
-        if text.contains("light")      { return .light }
-        return .sedentary
-    }
+//    private func resolvedActivityLevel(from assessment: Assessment) -> ActivityLevel {
+//        guard let q12 = questions.first(where: { $0.questionOrderIndex == 12 }),
+//              let answer = userAnswers.first(where: {
+//                  $0.questionId == q12.id && $0.assessmentId == assessment.id
+//              }),
+//              let optionId = answer.selectedOptionId,
+//              let option = questionOptions.first(where: { $0.id == optionId })
+//        else { return .sedentary }
+//
+//        let text = option.optionText.lowercased()
+//        if text.contains("very active") { return .veryActive }
+//        if text.contains("moderate")   { return .moderate }
+//        if text.contains("light")      { return .light }
+//        return .sedentary
+//    }
 
     private func ageFromProfile(_ profile: UserProfile) -> Int {
         Calendar.current.dateComponents([.year], from: profile.dateOfBirth, to: Date()).year ?? 22
+    }
+    
+    // ─────────────────────────────────────────────
+    // MARK: REPLACE these two functions in UserActions.swift
+    //
+    //  runEngineAndApply — reads age/height/weight from UserProfile
+    //  resolvedActivityLevel — reads from Q7 (orderIndex 7) OR UserProfile
+    // ─────────────────────────────────────────────
+
+    /// Core helper: builds EngineInput from answers + scan data and runs the engine.
+    /// Age / height / weight now read from UserProfile — never from picker answers.
+    private func runEngineAndApply(
+        scanId: UUID,
+        stage: HairFallStage,
+        scalp: ScalpCondition,
+        density: HairDensityLevel,
+        densityPercent: Float,
+        source: AnalysisSource,
+        profile: UserProfile,
+        assessment: Assessment
+    ) -> ActionResult {
+
+        // Physical values — read directly from UserProfile
+        let age      = Calendar.current.dateComponents([.year],
+                           from: profile.dateOfBirth, to: Date()).year ?? 22
+        let heightCm = profile.heightCm
+        let weightKg = profile.weightKg
+
+        // Activity level — from Q7 answer if present, else from UserProfile
+        let activity = resolvedActivityLevel(from: assessment) ?? activeNutritionProfile?.activityLevel ?? .sedentary
+
+        let input = EngineInput(
+            userId:            currentUserId,
+            assessmentId:      assessment.id,
+            answers:           userAnswers.filter { $0.assessmentId == assessment.id },
+            hairFallStage:     stage,
+            scalpCondition:    scalp,
+            hairDensityLevel:  density,
+            hairDensityPercent: densityPercent,
+            analysisSource:    source,
+            scalpScanId:       scanId,
+            age:               age,
+            heightCm:          heightCm,
+            weightKg:          weightKg,
+            activityLevel:     activity
+        )
+
+        let output = RecommendationEngine.run(input: input, store: self)
+        RecommendationEngine.applyToStore(output, store: self)
+
+        if output.userPlan.planId == "refer_doctor" {
+            return .referDoctor(message: output.planDescription.doctorReferralMessage ?? "")
+        }
+
+        return .success(message: "Plan \(output.userPlan.planId) assigned.")
+    }
+
+    /// Maps Q7 activity answer to ActivityLevel.
+    /// Returns nil if no answer found — caller falls back to UserProfile.activityLevel.
+    private func resolvedActivityLevel(from assessment: Assessment) -> ActivityLevel? {
+        guard let q7 = questions.first(where: { $0.questionOrderIndex == 7 }),
+              let answer = userAnswers.first(where: {
+                  $0.questionId == q7.id && $0.assessmentId == assessment.id
+              }),
+              let optionId = answer.selectedOptionId,
+              let option = questionOptions.first(where: { $0.id == optionId })
+        else { return nil }
+
+        let text = option.optionText.lowercased()
+        if text.contains("very active") { return .veryActive }
+        if text.contains("moderate")    { return .moderate }
+        if text.contains("light")       { return .light }
+        return .sedentary
     }
 }

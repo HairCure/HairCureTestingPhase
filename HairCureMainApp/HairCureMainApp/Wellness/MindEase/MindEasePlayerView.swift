@@ -1,13 +1,6 @@
 //
 //  MindEasePlayerView.swift
 //
-//  Content player screen:
-//  • Full-width hero — uses content.imageurl (gradient fallback)
-//  • Title + timer
-//  • Progress scrubber with elapsed / remaining time
-//  • Playback controls: shuffle · skip-back · play/pause · skip-forward
-//  All interactions are local mock state (no actual audio engine).
-//
 
 import SwiftUI
 internal import Combine
@@ -17,7 +10,7 @@ struct MindEasePlayerView: View {
 
     @Environment(MindEaseDataStore.self) private var mindEaseStore
     @Environment(\.dismiss) private var dismiss
-    
+
     @State private var isPlaying:   Bool   = false
     @State private var progress:    Double = 0.05
     @State private var isFavorited: Bool   = false
@@ -25,30 +18,15 @@ struct MindEasePlayerView: View {
 
     private let ticker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
-    private var heroGradient: LinearGradient {
-        let hash = content.title.unicodeScalars.reduce(0) { ($0 &* 31) &+ Int($1.value) }
-        let h    = Double(abs(hash) % 360) / 360.0
-        return LinearGradient(
-            colors: [
-                Color(hue: h, saturation: 0.65, brightness: 0.72),
-                Color(hue: (h + 0.14).truncatingRemainder(dividingBy: 1),
-                      saturation: 0.50, brightness: 0.48),
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
-
     private var elapsed:   Int { Int(progress * Double(content.durationSeconds)) }
     private var remaining: Int { max(0, content.durationSeconds - elapsed) }
 
     private func fmt(_ secs: Int) -> String {
         String(format: "%02d : %02d", secs / 60, secs % 60)
     }
-    
+
     private func saveProgress() {
-        let mins = Int(progress * Double(content.durationSeconds)) / 60
-        // Only log if at least one minute has passed to avoid spamming the store
+        let mins = elapsed / 60
         if mins > 0 {
             mindEaseStore.logMindfulSession(contentId: content.id, minutesCompleted: mins)
         }
@@ -58,16 +36,23 @@ struct MindEasePlayerView: View {
         GeometryReader { geo in
             VStack(spacing: 0) {
 
-                // ── Hero Section ─────────────────────────────────────────────
+                // ── Hero ─────────────────────────────────────────────────────
                 ZStack {
-                    Rectangle().fill(heroGradient)
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                colors: content.heroGradientColors,
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
 
                     if let uiImage = UIImage(named: content.imageurl) {
                         Image(uiImage: uiImage)
                             .resizable()
-                            .scaledToFill() // Changed from .fit to .fill to cover the area
-                            .frame(width: geo.size.width, height: geo.size.height * 0.42) // Match the container size
-                            .clipped() // Prevents the image from bleeding out of the frame
+                            .scaledToFill()
+                            .frame(width: geo.size.width, height: geo.size.height * 0.42)
+                            .clipped()
                     }
 
                     if UIImage(named: content.imageurl) == nil {
@@ -80,11 +65,11 @@ struct MindEasePlayerView: View {
                 .frame(height: geo.size.height * 0.42)
                 .clipped()
 
-                // ── Player panel ─────────────────────────────────────────────
+                // ── Player Panel ──────────────────────────────────────────────
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 22) {
 
-                        // Title + Timer + Favourite
+                        // Title + Favourite + Timer
                         HStack(alignment: .center) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(content.title)
@@ -94,7 +79,7 @@ struct MindEasePlayerView: View {
                                     .foregroundColor(.secondary)
                             }
                             Spacer()
-                            
+
                             Button {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                                     isFavorited.toggle()
@@ -105,7 +90,7 @@ struct MindEasePlayerView: View {
                                     .foregroundColor(isFavorited ? .red : .primary.opacity(0.7))
                                     .symbolEffect(.bounce, value: isFavorited)
                             }
-                            
+
                             Button { } label: {
                                 Image(systemName: "timer")
                                     .font(.system(size: 22))
@@ -134,9 +119,7 @@ struct MindEasePlayerView: View {
                             } label: {
                                 Image(systemName: "shuffle")
                                     .font(.system(size: 22))
-                                    .foregroundColor(isShuffled
-                                        ? Color(red: 0.40, green: 0.30, blue: 0.85)
-                                        : .primary.opacity(0.65))
+                                    .foregroundColor(isShuffled ? .mindEasePurple : .primary.opacity(0.65))
                             }
                             .frame(maxWidth: .infinity)
 
@@ -183,7 +166,8 @@ struct MindEasePlayerView: View {
                     .padding(.bottom, 32)
                 }
                 .scrollBounceBehavior(.basedOnSize)
-                .background(Color(UIColor.systemBackground))
+                // ← white card background using shared ViewModifier
+                .mindEaseCard(cornerRadius: 0, shadowRadius: 0, shadowY: 0)
             }
         }
         .ignoresSafeArea(edges: .top)
@@ -198,24 +182,40 @@ struct MindEasePlayerView: View {
                 saveProgress()
             }
         }
-        .onDisappear {
-            saveProgress()
-        }
+        .onDisappear { saveProgress() }
     }
 }
 
-//#Preview {
-//    NavigationStack {
-//        MindEasePlayerView(content: MindEaseCategoryContent(
-//            id: UUID(), categoryId: UUID(),
-//            title: "Ocean Waves",
-//            contentDescription: "Rhythmic ocean waves — calms the nervous system",
-//            caption: "Soft ocean rhythms for deep calm",
-//            mediaURL: "ocean.mp3", mediaType: "audio",
-//            durationSeconds: 1800, difficultyLevel: "beginner",
-//            imageurl: "ardh",
-//            orderIndex: 1, lastPlaybackSeconds: 0
-//        ))
-//        
-//    }
-//}
+// MARK: - Previews
+
+#Preview("Player — audio") {
+    let content = MindEaseCategoryContent(
+        id: UUID(), categoryId: UUID(),
+        title: "Bhramari",
+        contentDescription: "Humming bee breath — reduces stress hormones rapidly",
+        caption: "Humming Bee Breath",
+        mediaURL: "meditation_1.mp4", mediaType: "audio",
+        durationSeconds: 600, difficultyLevel: "beginner",
+        imageurl: "", lastPlaybackSeconds: 0
+    )
+    return NavigationStack {
+        MindEasePlayerView(content: content)
+            .environment(MindEaseDataStore(currentUserId: UUID()))
+    }
+}
+
+#Preview("Player — video") {
+    let content = MindEaseCategoryContent(
+        id: UUID(), categoryId: UUID(),
+        title: "Uttanasana",
+        contentDescription: "Forward bend — relieves stress",
+        caption: "Forward Fold",
+        mediaURL: "yoga_1.mp4", mediaType: "video",
+        durationSeconds: 90, difficultyLevel: "beginner",
+        imageurl: "", lastPlaybackSeconds: 0
+    )
+    return NavigationStack {
+        MindEasePlayerView(content: content)
+            .environment(MindEaseDataStore(currentUserId: UUID()))
+    }
+}

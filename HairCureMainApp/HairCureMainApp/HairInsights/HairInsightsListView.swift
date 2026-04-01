@@ -1,197 +1,278 @@
-//
-//  HairInsightsListView.swift
-//  HairCureTesting1
-//
-//  List view for a Hair Insights section.
-//  Matches screenshot: nav bar title, rows with gradient thumbnail,
-//  title, description, chevron. Tapping a row pushes HairInsightDetailView.
-//  iOS 17: scrollTransition on each row, scrollBounceBehavior.
-//
-//
-//  HairInsightsListView.swift
-//  HairCure
-//
-//  List view for a Hair Insights section.
-//  Now reads from HairInsightsDataStore instead of AppDataStore.
-//
-
 import SwiftUI
 
-struct HairInsightsListView: View {
-    let section: HairInsightSectionDest.Section
+// MARK: - HomeRemediesListView
 
-    // ← Changed from AppDataStore to HairInsightsDataStore
-    @Environment(HairInsightsDataStore.self) private var store
-    @State private var detailDest: HairInsightItemDest? = nil
-
-    private var navTitle: String {
-        switch section {
-        case .careTips:     return "Care Tips"
-        case .homeRemedies: return "Home Remedies"
-        case .favourites:   return "Your Favourites"
-        case .insights:     return "Hair Insights"
-        }
-    }
+struct HomeRemediesListView: View {
+    let insightStore: HairInsightsDataStore
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 0) {
-                ForEach(Array(rows.enumerated()), id: \.offset) { idx, row in
-                    InsightListRow(
-                        title:        row.title,
-                        subtitle:     row.subtitle,
-                        imageUrl:     row.imageUrl,
-                        gradientSeed: idx
-                    ) {
-                        detailDest = HairInsightItemDest(id: row.id, type: row.type)
-                    }
-                    .scrollTransition(.animated.threshold(.visible(0.05))) { c, p in
-                        c.opacity(p.isIdentity ? 1 : 0).offset(x: p.isIdentity ? 0 : 24)
-                    }
-
-                    if idx < rows.count - 1 {
-                        Divider().padding(.leading, 106)
-                    }
+        List {
+            ForEach(insightStore.homeRemedies.filter(\.isActive)) { remedy in
+                NavigationLink {
+                    HomeRemedyDetailView(remedy: remedy, insightStore: insightStore)
+                } label: {
+                    HomeRemedyRowView(remedy: remedy)
                 }
             }
-            .background(Color(UIColor.systemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 0))
-            .padding(.top, 4)
         }
-        .scrollBounceBehavior(.basedOnSize)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.hcCream.ignoresSafeArea())
-        .navigationTitle(navTitle)
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)//hides default List bg
+        .background(Color.hcCream)
+        .navigationTitle("Home Remedies")
+        
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(item: $detailDest) { dest in
-            HairInsightDetailView(itemId: dest.id, type: dest.type)
-        }
-    }
-
-    // MARK: - Row data
-
-    private struct RowData {
-        let id: UUID; let title: String; let subtitle: String
-        let imageUrl: String?; let type: String
-    }
-
-    private var rows: [RowData] {
-        switch section {
-        case .careTips:
-            // Uses store.sortedCareTips (convenience on HairInsightsDataStore)
-            return store.sortedCareTips.map {
-                RowData(id: $0.id, title: $0.title, subtitle: $0.tipDescription,
-                        imageUrl: $0.mediaURL, type: "careTip")
-            }
-        case .homeRemedies:
-            return store.homeRemedies.map {
-                RowData(id: $0.id, title: $0.title, subtitle: $0.remedyDescription,
-                        imageUrl: $0.mediaURL, type: "homeRemedy")
-            }
-        case .favourites:
-            // Resolve each favourite to its underlying content item
-            return store.currentUserFavorites.compactMap { fav -> RowData? in
-                switch fav.contentType {
-                case "homeRemedy":
-                    if let r = store.homeRemedies.first(where: { $0.id == fav.contentId }) {
-                        return RowData(id: r.id, title: r.title, subtitle: r.remedyDescription,
-                                       imageUrl: r.mediaURL, type: "homeRemedy")
-                    }
-                case "careTip":
-                    if let t = store.careTips.first(where: { $0.id == fav.contentId }) {
-                        return RowData(id: t.id, title: t.title, subtitle: t.tipDescription,
-                                       imageUrl: t.mediaURL, type: "careTip")
-                    }
-                case "hairInsight":
-                    if let h = store.hairInsights.first(where: { $0.id == fav.contentId }) {
-                        return RowData(id: h.id, title: h.title, subtitle: h.insightDescription,
-                                       imageUrl: h.mediaURL, type: "hairInsight")
-                    }
-                default: break
-                }
-                return nil
-            }
-        case .insights:
-            return store.hairInsights.map {
-                RowData(id: $0.id, title: $0.title, subtitle: $0.insightDescription,
-                        imageUrl: $0.mediaURL, type: "hairInsight")
-            }
-        }
+        
     }
 }
 
-// MARK: - List Row  (unchanged)
+// MARK: - HomeRemedyRowView
 
-struct InsightListRow: View {
-    let title:        String
-    let subtitle:     String
-    let imageUrl:     String?
-    let gradientSeed: Int
-    let onTap:        () -> Void
+struct HomeRemedyRowView: View {
+    let remedy: HomeRemedy
 
-    private static let palettes: [[Color]] = [
-        [Color(red:0.22,green:0.45,blue:0.32), Color(red:0.12,green:0.30,blue:0.20)],
-        [Color(red:0.58,green:0.32,blue:0.22), Color(red:0.38,green:0.18,blue:0.10)],
-        [Color(red:0.28,green:0.42,blue:0.60), Color(red:0.14,green:0.26,blue:0.46)],
-        [Color(red:0.50,green:0.38,blue:0.22), Color(red:0.32,green:0.22,blue:0.10)],
-        [Color(red:0.38,green:0.28,blue:0.55), Color(red:0.22,green:0.14,blue:0.40)],
-        [Color(red:0.55,green:0.45,blue:0.22), Color(red:0.35,green:0.28,blue:0.10)]
-    ]
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.systemGray5))
+                    .frame(width: 100, height: 80)
 
-    private var gradient: LinearGradient {
-        let c = Self.palettes[gradientSeed % Self.palettes.count]
-        return LinearGradient(colors: c, startPoint: .topLeading, endPoint: .bottomTrailing)
+                if let imageName = remedy.mediaURL {
+                    Image(imageName)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 100, height: 80)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                } else {
+                    Image(systemName: "play.circle")
+                        .font(.title)
+                        .foregroundStyle(Color(.systemGray3))
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(remedy.title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Text(remedy.remedyDescription)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+
+                if let seconds = remedy.videoDurationSeconds {
+                    Label(formatDuration(seconds), systemImage: "clock")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+        }
+        .padding(.vertical, 6)
+    }
+
+    private func formatDuration(_ seconds: Int) -> String {
+        String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+}
+
+// MARK: - CareTipsListView
+
+struct CareTipsListView: View {
+    let insightStore: HairInsightsDataStore
+    var body: some View {
+        List {
+            ForEach(insightStore.careTips.filter(\.isActive)) { tip in
+                NavigationLink {
+                    CareTipDetailView(tip: tip, insightStore: insightStore)
+                } label: {
+                    CareTipRowView(
+                        tip: tip,
+                        isFav: insightStore.isFavorite(contentId: tip.id),
+                        onFavTap: {
+                            insightStore.toggleFavorite(contentId: tip.id)
+                        }
+                    )
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)//hides default List bg
+        .background(Color.hcCream)
+        .navigationTitle("Care Tips")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - CareTipRowView
+
+struct CareTipRowView: View {
+    let tip: CareTip
+    let isFav: Bool
+    let onFavTap: () -> Void
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.systemGray5))
+                    .frame(width: 72, height: 72)
+
+                if let imageName = tip.mediaURL {
+                    Image(imageName)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 72, height: 72)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                } else {
+                    Image(systemName: "leaf")
+                        .font(.title)
+                        .foregroundStyle(Color(.systemGray3))
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(tip.title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Text(tip.tipDescription)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer()
+
+            Button(action: onFavTap) {
+                Image(systemName: isFav ? "heart.fill" : "heart")
+                    .foregroundStyle(isFav ? .red : Color(.systemGray3))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, 6)
+    }
+}
+
+// MARK: - FavouritesListView
+
+struct FavouritesListView: View {
+    let insightStore: HairInsightsDataStore  // let, not var
+    let userPlan: UserPlan?
+
+    private var allFavs: [AnyFavouriteItem] {
+        insightStore.allFavourites()
     }
 
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(gradient)
-                        .frame(width: 80, height: 60)
-
-                    if let url = imageUrl, let img = UIImage(named: url) {
-                        Image(uiImage: img)
-                            .resizable().scaledToFill()
-                            .frame(width: 80, height: 60)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    } else {
-                        Image(systemName: "leaf.fill")
-                            .font(.system(size: 22))
-                            .foregroundColor(.white.opacity(0.55))
+        Group {
+            if allFavs.isEmpty {
+              
+                ContentUnavailableView(
+                    "No Favourites Yet",
+                    systemImage: "heart",
+                    description: Text("Tap ♡ on any tip or remedy to save it here.")
+                    
+                )
+               
+                .background(Color.hcCream)
+            } else {
+                List {
+                    ForEach(allFavs) { item in
+                        NavigationLink {
+                            detailView(for: item)
+                        } label: {
+                            FavouriteItemRowView(item: item, onRemove: {
+                                insightStore.toggleFavorite(contentId: item.id)
+                            })
+                        }
                     }
                 }
-                .frame(width: 80, height: 60)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(title)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.primary)
-                            .lineLimit(2)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 13))
-                            .foregroundColor(.secondary)
-                    }
-                    Text(subtitle)
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                }
+                .listStyle(.insetGrouped)
+                
+                .scrollContentBackground(.hidden) //hides default List bg
+                .background(Color.hcCream)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 14)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .navigationTitle("Your Favourites")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+   
+    @ViewBuilder
+    private func detailView(for item: AnyFavouriteItem) -> some View {
+        switch item {
+        case .careTip(let t):
+            CareTipDetailView(tip: t, insightStore: insightStore)
+        case .remedy(let r):
+            HomeRemedyDetailView(remedy: r, insightStore: insightStore)
+        }
     }
 }
 
+// MARK: - FavouriteItemRowView
+
+struct FavouriteItemRowView: View {
+    let item: AnyFavouriteItem
+    let onRemove: () -> Void
+
+    private var typeLabel: String {
+        switch item {
+        case .careTip:  return "Care Tip"
+        case .remedy:   return "Home Remedy"
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(.systemGray5))
+                    .frame(width: 56, height: 56)
+
+                if let imageName = item.mediaURL {
+                    Image(imageName)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 56, height: 56)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                } else {
+                    Image(systemName: "heart.fill")
+                        .foregroundStyle(.red.opacity(0.4))
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.title)
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.primary)
+                Text(typeLabel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Button(action: onRemove) {
+                Image(systemName: "heart.fill")
+                    .foregroundStyle(.red)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, 6)
+    }
+}
 #Preview {
     NavigationStack {
-        HairInsightsListView(section: .homeRemedies)
-            .environment(HairInsightsDataStore(currentUserId: UUID()))
+        HomeRemediesListView(insightStore: .mock())
+    }
+}
+#Preview {
+    NavigationStack {
+        CareTipsListView(insightStore: .mock())
+    }
+}
+#Preview {
+    NavigationStack {
+        FavouritesListView(insightStore: .mock(), userPlan: nil)
     }
 }

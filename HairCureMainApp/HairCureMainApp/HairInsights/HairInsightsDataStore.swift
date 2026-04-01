@@ -1,210 +1,150 @@
-
 import Foundation
 import Observation
 
+// MARK: - HairInsightsDataStore
+
 @Observable
-final class HairInsightsDataStore {
+class HairInsightsDataStore {
 
-    // MARK: - State
+    // MARK: - Properties
 
-    var hairInsights:  [HairInsight]  = []
-    var careTips:      [CareTip]      = []
-    var homeRemedies:  [HomeRemedy]   = []
-    var dailyTips:     [DailyTip]     = []
+    var careTips: [CareTip]           = []
+    var homeRemedies: [HomeRemedy]    = []
     var userFavorites: [UserFavorite] = []
-
-    /// Mirrors AppDataStore.currentUserId so favourite operations stay in sync.
-    var currentUserId: UUID
 
     // MARK: - Init
 
-    init(currentUserId: UUID) {
-        self.currentUserId = currentUserId
-        seedHairInsights()
+    init() {
         seedCareTips()
-        seedHomeRemedies()
-        seedDailyTips()
+        seedRemedies()
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // MARK: - Seeding  (moved verbatim from AppDataStore)
-    // ─────────────────────────────────────────────────────────────
+    // MARK: - Favourite Helpers
+// checks if user has made  favourite this item
+    func isFavorite(contentId: UUID) -> Bool {
+        userFavorites.contains { $0.contentId == contentId }
+    }
 
-    // MARK: Hair Insights  (Stage 2 / dry scalp)
-
-    private func seedHairInsights() {
-        [("How zinc deficiency causes hair thinning",
-          "Zinc is essential for hair follicle function. Low levels cause the follicle to shrink, leading to visible thinning at the crown.",
-          "all", [2, 3]),
-         ("Why dry scalp increases breakage",
-          "A dry scalp lacks natural oils to protect the hair shaft, increasing brittleness and making hair fall appear worse.",
-          "dry", [1, 2, 3]),
-         ("The link between cortisol and hair loss",
-          "Chronic stress raises cortisol, pushing follicles into the resting phase. Diffuse shedding follows 2–3 months later.",
-          "all", [1, 2, 3]),
-         ("Best foods to increase biotin naturally",
-          "Eggs, almonds, and sweet potatoes are among the richest natural sources of biotin — directly linked to keratin production.",
-          "all", [1, 2]),
-         ("Oiling routine for dry scalp relief",
-          "Warm coconut or almond oil twice a week hydrates the scalp, reduces itching, and creates an environment where hair grows stronger.",
-          "dry", [1, 2, 3]),
-         ("How sleep deprivation affects your hair",
-          "Hair cells are among the fastest dividing in the body. Under 6 hrs consistently disrupts the repair cycle.",
-          "all", [1, 2, 3]),
-         ("Why daily washing may be hurting you",
-          "Daily washing strips natural sebum, causing glands to overcompensate — worsening dryness and irritation.",
-          "dry", [1, 2])
-        ].forEach { title, desc, scalp, stages in
-            hairInsights.append(HairInsight(
-                id: UUID(),
-                title: title,
-                insightDescription: desc,
-                category: "hair_health",
-                mediaURL: nil,
-                targetHairTypes: ["all"],
-                targetScalpConditions: [scalp],
-                targetPlanStages: stages,
-                difficultyLevel: nil,
-                isActive: true
-            ))
+    func toggleFavorite(contentId: UUID) {
+        // if user already made fav remove it
+        if let idx = userFavorites.firstIndex(where: { $0.contentId == contentId }) {
+            userFavorites.remove(at: idx)
+            
         }
-    }
-
-    // MARK: Care Tips
-
-    private func seedCareTips() {
-        [("Wash hair every 2–3 days",
-          "Over-washing strips the scalp. Washing every 2–3 days maintains natural oil balance.",
-          "washing", 1),
-         ("Use lukewarm water, not hot",
-          "Hot water opens the cuticle too aggressively and dries the scalp.",
-          "washing", 2),
-         ("Oil your scalp twice a week",
-          "Warm coconut or almond oil left for 30 min nourishes follicles and reduces dryness.",
-          "oiling", 1),
-         ("Avoid tight hairstyles",
-          "Tight ponytails put traction on follicles at the hairline — over time causing traction alopecia.",
-          "styling", 3),
-         ("Pat dry — don't rub",
-          "Rubbing wet hair causes breakage. Pat gently with a soft cotton towel.",
-          "drying", 2),
-         ("Use a wide-tooth comb on wet hair",
-          "Wet hair stretches easily. Work from ends upward to prevent snapping.",
-          "combing", 2)
-        ].forEach { title, desc, cat, priority in
-            careTips.append(CareTip(
-                id: UUID(),
-                title: title,
-                tipDescription: desc,
-                mediaURL: nil,
-                category: cat,
-                benefits: "Reduces breakage and supports hair growth",
-                actionSteps: nil,
-                priority: priority
-            ))
-        }
-    }
-
-    // MARK: Home Remedies
-
-    private func seedHomeRemedies() {
-        [("Onion Juice Scalp Treatment",
-          "Sulphur in onion juice boosts collagen and improves circulation to follicles.",
-          "Reduces hair fall and promotes regrowth",
-          "Blend 1 onion, strain juice, apply to scalp 30 min, wash with mild shampoo. Twice a week."),
-         ("Aloe Vera Scalp Mask",
-          "Proteolytic enzymes repair dead skin cells on the scalp and condition hair.",
-          "Soothes dry scalp, reduces dandruff, strengthens hair",
-          "Apply fresh aloe gel to scalp and hair. Leave 45 min. Rinse with cool water."),
-         ("Fenugreek Seed Hair Mask",
-          "Fenugreek contains lecithin and proteins that strengthen hair shafts.",
-          "Reduces hair fall and adds shine",
-          "Soak 2 tbsp seeds overnight, grind to paste, mix with yogurt. Apply 30 min, wash off."),
-         ("Egg & Olive Oil Mask",
-          "Egg yolk provides biotin; olive oil adds moisture and shine.",
-          "Deep conditioning, reduces dryness",
-          "Mix 1 egg yolk with 2 tbsp olive oil. Apply 20 min. Rinse with cool water.")
-        ].forEach { title, desc, benefits, instructions in
-            homeRemedies.append(HomeRemedy(
-                id: UUID(),
-                title: title,
-                remedyDescription: desc,
-                mediaURL: nil,
-                benefits: benefits,
-                instructions: instructions
-            ))
-        }
-    }
-
-    // MARK: Daily Tips
-
-    private func seedDailyTips() {
-        ["Drink a glass of water first thing in the morning to kickstart metabolism.",
-         "Pumpkin seeds are rich in zinc — add a handful to your snack today.",
-         "A 10-min walk after meals improves nutrient absorption and reduces stress.",
-         "Comb gently from ends to roots to prevent breakage and stimulate the scalp.",
-         "One egg at breakfast gives you biotin directly linked to keratin production.",
-         "7–8 hrs of sleep allows hair cells to repair — aim for a consistent bedtime.",
-         "5-minute scalp massage daily improves blood circulation to follicles."
-        ].enumerated().forEach { i, tip in
-            dailyTips.append(DailyTip(
-                id: UUID(),
-                tipText: tip,
-                category: "hair_health",
-                displayDate: Calendar.current.date(byAdding: .day, value: i, to: Date())
-            ))
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────
-    // MARK: - Favourite Helpers (used by HairInsightDetailView)
-    // ─────────────────────────────────────────────────────────────
-
-    /// Returns `true` when the current user has favourited `contentId`.
-    func isFavourited(contentId: UUID) -> Bool {
-        userFavorites.contains {
-            $0.userId == currentUserId && $0.contentId == contentId
-        }
-    }
-
-    /// Adds or removes a favourite entry.  Idempotent — safe to call repeatedly.
-    func setFavourited(_ favourited: Bool, contentType: String, contentId: UUID) {
-        if favourited {
-            guard !isFavourited(contentId: contentId) else { return }
+        //otherwise add it
+        else {
             userFavorites.append(UserFavorite(
                 id: UUID(),
-                userId: currentUserId,
-                contentType: contentType,
                 contentId: contentId,
                 savedAt: Date()
             ))
-        } else {
-            userFavorites.removeAll {
-                $0.userId == currentUserId && $0.contentId == contentId
-            }
         }
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // MARK: - Convenience Queries
-    // ─────────────────────────────────────────────────────────────
-
-    /// All favourites belonging to the current user.
-    var currentUserFavorites: [UserFavorite] {
-        userFavorites.filter { $0.userId == currentUserId }
+    // MARK: - Favourited Content Resolvers
+    //Takes raw userFavorites IDs → looks them up in careTips array → returns actual [CareTip] objects in most-recently-saved order
+    
+    func favouritedCareTips() -> [CareTip] {
+        let ids = userFavorites
+            .sorted { $0.savedAt > $1.savedAt }
+            .map(\.contentId)
+        return ids.compactMap { id in careTips.first { $0.id == id } }
     }
 
-    /// Today's daily tip, falling back to the first available tip if none matches.
-    var todaysTip: DailyTip? {
-        let today = Calendar.current.startOfDay(for: Date())
-        return dailyTips.first {
-            guard let d = $0.displayDate else { return false }
-            return Calendar.current.startOfDay(for: d) == today
-        } ?? dailyTips.first
+    func favouritedHomeRemedies() -> [HomeRemedy] {
+        let ids = userFavorites
+            .sorted { $0.savedAt > $1.savedAt }
+            .map(\.contentId)
+        return ids.compactMap { id in homeRemedies.first { $0.id == id } }
+        
+        
     }
 
-    /// Care tips sorted by priority ascending.
-    var sortedCareTips: [CareTip] {
-        careTips.sorted { $0.priority < $1.priority }
+    func allFavourites() -> [AnyFavouriteItem] {
+        let tips    = favouritedCareTips().map    { AnyFavouriteItem.careTip($0) }
+        let remedies = favouritedHomeRemedies().map { AnyFavouriteItem.remedy($0) }
+        return tips + remedies
+    }
+//    `//Calls both functions above
+//    - Wraps each result into `AnyFavouriteItem` so both types live in one unified array
+//    - Combines them with `+
+
+    // MARK: - Seed Data
+   // private bcs  called only once from init() and never needed by anyone outside the class.
+    // this function only exists to serve init()
+
+    private func seedCareTips() {
+        careTips = [
+            CareTip(id: UUID(), title: "Oil Massage",
+                    tipDescription: "A warm oil massage before washing increases blood flow to hair follicles, promoting growth and reducing shedding.",
+                    mediaURL: "oil_massage_thumb", isActive: true),
+            CareTip(id: UUID(), title: "Silk Pillowcase",
+                    tipDescription: "Sleeping on silk reduces friction and prevents hair breakage and split ends overnight.",
+                    mediaURL: "silk_pillowcase_thumb", isActive: true),
+            CareTip(id: UUID(), title: "Cold Water Rinse",
+                    tipDescription: "Finishing your wash with cold water seals the hair cuticle for added shine and less frizz.",
+                    mediaURL: "cold_water_rinse_thumb", isActive: true),
+            CareTip(id: UUID(), title: "Scalp Massage",
+                    tipDescription: "A 5-minute daily scalp massage stimulates follicles and may increase hair thickness over time.",
+                    mediaURL: "scalp_massage_thumb", isActive: true),
+        ]
+    }
+
+    private func seedRemedies() {
+        homeRemedies = [
+            HomeRemedy(id: UUID(), title: "Aloevera Hair Mask",
+                       remedyDescription: "Applying aloevera hair mask ?",
+                       mediaURL: "aloevera_mask_thumb", videoDurationSeconds: 120,
+                       benefits: "Soothes the scalp, reduces hair fall, and adds smooth healthy shine.",
+                       instructions: "Apply fresh aloe vera gel to scalp and hair. Leave for 30 minutes. Rinse with mild shampoo.",
+                       isActive: true),
+            HomeRemedy(id: UUID(), title: "Onion Juice Massage",
+                       remedyDescription: "How to do onion juice massage ?",
+                       mediaURL: "onion_juice_thumb", videoDurationSeconds: 105,
+                       benefits: "Rich in sulphur which boosts collagen production and reduces hair thinning.",
+                       instructions: "Blend 2 onions, strain the juice, apply to scalp, leave for 15 minutes, wash off.",
+                       isActive: true),
+            HomeRemedy(id: UUID(), title: "Egg White Mask",
+                       remedyDescription: "How to apply egg white mask ?",
+                       mediaURL: "egg_mask_thumb", videoDurationSeconds: 150,
+                       benefits: "Protein-packed mask that strengthens the hair shaft and reduces breakage.",
+                       instructions: "Whisk 2 egg whites, apply to damp hair, leave for 20 minutes, rinse with cool water.",
+                       isActive: true),
+        ]
     }
 }
+
+// MARK: - AnyFavouriteItem
+// this is a type erased wrapper enum let us values of diff array to mix in one
+enum AnyFavouriteItem: Identifiable {
+    case careTip(CareTip)
+    case remedy(HomeRemedy)
+
+    var id: UUID {
+        switch self {
+        case .careTip(let t): return t.id
+        case .remedy(let r):  return r.id
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .careTip(let t): return t.title
+        case .remedy(let r):  return r.title
+        }
+    }
+
+    var mediaURL: String? {
+        switch self {
+        case .careTip(let t): return t.mediaURL
+        case .remedy(let r):  return r.mediaURL
+        }
+    }
+}
+#if DEBUG
+extension HairInsightsDataStore {
+    static func mock() -> HairInsightsDataStore {
+        return HairInsightsDataStore()  // init() already calls seedCareTips() and seedRemedies()
+    }
+}
+#endif

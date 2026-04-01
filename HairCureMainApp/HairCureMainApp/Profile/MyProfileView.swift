@@ -47,7 +47,7 @@ struct MyProfileView: View {
         List {
 
             // ── Personal Information ──
-            Section("Personal Information") {
+            Section {
                 editableRow(label: "Full Name", text: $fullName, placeholder: "Full name")
                 editableRow(label: "Phone", text: $phoneNumber, placeholder: "+91 9876543210", keyboard: .phonePad)
                 editableRow(label: "Email", text: $email, placeholder: "email@example.com", keyboard: .emailAddress)
@@ -72,10 +72,12 @@ struct MyProfileView: View {
                 .sheet(isPresented: $showDOBPicker) {
                     dobPickerSheet
                 }
+            } header: {
+                sectionHeader(icon: "person.circle.fill", title: "Personal Information")
             }
 
             // ── Hair Profile ──
-            Section("Hair Profile") {
+            Section {
                 HStack {
                     Text("Current Diagnosis")
                     Spacer()
@@ -85,10 +87,12 @@ struct MyProfileView: View {
 
                 editableRow(label: "Hair Type", text: $hairType, placeholder: "e.g. Wavy")
                 editableRow(label: "Scalp Type", text: $scalpType, placeholder: "e.g. Dry")
+            } header: {
+                sectionHeader(icon: "comb.fill", title: "Hair Profile")
             }
 
             // ── Daily Goals ──
-            Section("Daily Goals") {
+            Section {
                 editableRow(label: "Calorie Goal", text: $calorieGoal, placeholder: "kcal", keyboard: .numberPad, unit: "kcal")
                 editableRow(label: "Hydration Goal", text: $waterGoalML, placeholder: "mL", keyboard: .numberPad, unit: "mL")
                 editableRow(label: "Height", text: $heightCm, placeholder: "cm", keyboard: .numberPad, unit: "cm")
@@ -104,13 +108,17 @@ struct MyProfileView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+            } header: {
+                sectionHeader(icon: "target", title: "Daily Goals")
             }
 
             // ── MindEase ──
-            Section("MindEase") {
+            Section {
                 editableRow(label: "Yoga", text: $yogaMinutes, placeholder: "min", keyboard: .numberPad, unit: "min/day")
                 editableRow(label: "Meditation", text: $meditationMins, placeholder: "min", keyboard: .numberPad, unit: "min/day")
                 editableRow(label: "Relaxing Sound", text: $soundMins, placeholder: "min", keyboard: .numberPad, unit: "min/day")
+            } header: {
+                sectionHeader(icon: "figure.mind.and.body", title: "MindEase")
             }
 
             // ── Save (only in edit mode) ──
@@ -150,6 +158,20 @@ struct MyProfileView: View {
             }
         }
         .onAppear(perform: loadFields)
+    }
+
+    // MARK: - View Helpers
+
+    private func sectionHeader(icon: String, title: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+                .textCase(.none)
+        }
+        .foregroundStyle(.secondary)
+        .padding(.bottom, 4)
     }
 
     // MARK: - Editable Row

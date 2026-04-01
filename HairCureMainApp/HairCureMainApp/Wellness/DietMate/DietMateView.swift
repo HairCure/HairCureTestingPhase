@@ -1,47 +1,20 @@
 import SwiftUI
 
-// MARK: - Colour theme per meal
-extension MealType {
-    var accentColor: Color {
-        switch self {
-        case .breakfast: return Color(red: 0.976, green: 0.451, blue: 0.086)  // orange
-        case .lunch:     return Color(red: 0.937, green: 0.420, blue: 0.420)  // red-salmon
-        case .snack:     return Color(red: 0.133, green: 0.773, blue: 0.369)  // green
-        case .dinner:    return Color(red: 0.659, green: 0.333, blue: 0.969)  // purple
-        }
-    }
-
-    var displayOrder: Int {
-        switch self {
-        case .breakfast: return 0
-        case .lunch:     return 1
-        case .snack:     return 2
-        case .dinner:    return 3
-        }
-    }
-}
-
 // MARK: - Main View
 
 struct DietMateView: View {
     @Environment(AppDataStore.self) private var store
     @Environment(DietmateDataStore.self) private var dietMateStore
 
-    /// The date whose meals are currently shown in the cards below.
-    /// Defaults to today; changes when a ring is tapped or the calendar picks a date.
     @State private var selectedDate: Date = Calendar.current.startOfDay(for: Date())
-
-    /// Controls the native-calendar bottom sheet
     @State private var showCalendarSheet: Bool = false
-
     @State private var pushMealId: UUID?   = nil
     @State private var selectedFood: Food? = nil
 
-    // Sunday-anchored week containing today
     private var weekDates: [Date] {
         let cal     = Calendar.current
         let today   = cal.startOfDay(for: Date())
-        let weekday = cal.component(.weekday, from: today)   // 1 = Sun
+        let weekday = cal.component(.weekday, from: today)
         let start   = -(weekday - 1)
         return (0..<7).compactMap { cal.date(byAdding: .day, value: start + $0, to: today) }
     }
@@ -54,7 +27,6 @@ struct DietMateView: View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 20) {
 
-                // ── Date Header ──
                 dateHeader
                     .scrollTransition(.animated.threshold(.visible(0.3))) { content, phase in
                         content
@@ -62,7 +34,6 @@ struct DietMateView: View {
                             .offset(y: phase.isIdentity ? 0 : -12)
                     }
 
-                // ── Ring Calendar ──
                 ringCalendar
                     .scrollTransition(.animated.threshold(.visible(0.2))) { content, phase in
                         content
@@ -70,7 +41,6 @@ struct DietMateView: View {
                             .scaleEffect(phase.isIdentity ? 1 : 0.95)
                     }
 
-                // ── Section title — changes when browsing history ──
                 HStack {
                     Text(isSelectedDateToday ? "Daily Meals" : sectionTitle(for: selectedDate))
                         .font(.system(size: 22, weight: .bold))
@@ -78,7 +48,6 @@ struct DietMateView: View {
 
                     Spacer()
 
-                    // "Back to Today" pill — only visible when browsing a past day
                     if !isSelectedDateToday {
                         Button {
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
@@ -103,42 +72,28 @@ struct DietMateView: View {
                         .offset(x: phase.isIdentity ? 0 : -20)
                 }
 
-                // ── Meal Cards for selected date ──
                 mealCards
-
                 Spacer(minLength: 24)
             }
             .padding(.top, 8)
         }
         .scrollBounceBehavior(.basedOnSize)
-        // Native calendar sheet
-        .sheet(isPresented: $showCalendarSheet) {
-            calendarSheet
-        }
-        .navigationDestination(item: $pushMealId) { mealId in
-            AddMealView(mealEntryId: mealId)
-        }
-        .sheet(item: $selectedFood) { food in
-            FoodDetailView(food: food)
-        }
+        .sheet(isPresented: $showCalendarSheet) { calendarSheet }
+        .navigationDestination(item: $pushMealId) { AddMealView(mealEntryId: $0) }
+        .sheet(item: $selectedFood) { FoodDetailView(food: $0) }
     }
 
     // MARK: - Date Header
 
     private var dateHeader: some View {
         HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(formattedHeaderDate(selectedDate))
-                    .font(.system(size: 20, weight: .bold))
-                    .animation(.easeInOut(duration: 0.2), value: selectedDate)
-            }
+            Text(formattedHeaderDate(selectedDate))
+                .font(.system(size: 20, weight: .bold))
+                .animation(.easeInOut(duration: 0.2), value: selectedDate)
 
             Spacer()
 
-            // Calendar icon — opens native DatePicker sheet
-            Button {
-                showCalendarSheet = true
-            } label: {
+            Button { showCalendarSheet = true } label: {
                 Image(systemName: "calendar")
                     .font(.system(size: 20, weight: .medium))
                     .foregroundColor(.hcBrown)
@@ -153,22 +108,16 @@ struct DietMateView: View {
     private func formattedHeaderDate(_ date: Date) -> String {
         let calendar = Calendar.current
         let dateString = date.formatted(.dateTime.day().month().year())
-
-        if calendar.isDateInToday(date) {
-            return "Today, \(dateString)"
-        } else if calendar.isDateInYesterday(date) {
-            return "Yesterday, \(dateString)"
-        } else {
-            return date.formatted(.dateTime.weekday(.wide).day().month().year())
-        }
+        if calendar.isDateInToday(date)      { return "Today, \(dateString)" }
+        if calendar.isDateInYesterday(date)  { return "Yesterday, \(dateString)" }
+        return date.formatted(.dateTime.weekday(.wide).day().month().year())
     }
 
     private func sectionTitle(for date: Date) -> String {
-        let dateString = date.formatted(.dateTime.day().month())
-        return "\(dateString) — Meals"
+        "\(date.formatted(.dateTime.day().month())) (Meals)"
     }
 
-    // MARK: - Native Calendar Sheet
+    // MARK: - Calendar Sheet
 
     private var calendarSheet: some View {
         NavigationStack {
@@ -184,20 +133,24 @@ struct DietMateView: View {
                             showCalendarSheet = false
                         }
                     ),
-                    in: ...Date(),          // no future dates
+                    in: ...Date(),
                     displayedComponents: .date
                 )
                 .datePickerStyle(.graphical)
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
-
                 Spacer()
             }
             .navigationTitle("Pick a Date")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { showCalendarSheet = false }
+                    Button{
+                        showCalendarSheet = false
+                    } label:{
+                        Image(systemName: "xmark")
+                        
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Today") {
@@ -216,38 +169,34 @@ struct DietMateView: View {
     // MARK: - Ring Calendar
 
     private var ringCalendar: some View {
-        let cal       = Calendar.current
-        let today     = cal.startOfDay(for: Date())
-        let selDay    = cal.startOfDay(for: selectedDate)
-        let dayLetters = ["S", "M", "T", "W", "T", "F", "S"]
+        let cal        = Calendar.current
+        let today      = cal.startOfDay(for: Date())
+        let selectedDay = cal.startOfDay(for: selectedDate)
+        let dayLetters  = ["S", "M", "T", "W", "T", "F", "S"]
 
         func fillProgress(for date: Date) -> Double {
             let target = dietMateStore.totalCalorieTarget(for: date)
             guard target > 0 else { return 0 }
-            let consumed = dietMateStore.totalCalories(for: date)
-            return min(Double(consumed / target), 1.0)
+            return min(Double(dietMateStore.totalCalories(for: date) / target), 1.0)
         }
 
         func ringColor(for date: Date) -> Color {
-            let target   = dietMateStore.totalCalorieTarget(for: date)
+            let target = dietMateStore.totalCalorieTarget(for: date)
             guard target > 0 else { return .green }
-            let consumed = dietMateStore.totalCalories(for: date)
-            return consumed > target * 1.10 ? Color.orange : Color.green
+            return dietMateStore.totalCalories(for: date) > target * 1.10 ? .orange : .green
         }
 
         return HStack(spacing: 0) {
             ForEach(Array(weekDates.enumerated()), id: \.offset) { _, date in
-                let dayStart  = cal.startOfDay(for: date)
-                let isToday   = dayStart == today
-                let isSelected = dayStart == selDay
-                let dayIdx    = cal.component(.weekday, from: date) - 1
-                let progress  = fillProgress(for: date)
-                let color     = ringColor(for: date)
-                // Future dates are not interactive
-                let isFuture  = dayStart > today
+                let dayStart   = cal.startOfDay(for: date)
+                let isToday    = dayStart == today
+                let isSelected = dayStart == selectedDay
+                let dayIdx     = cal.component(.weekday, from: date) - 1
+                let progress   = fillProgress(for: date)
+                let color      = ringColor(for: date)
+                let isFuture   = dayStart > today
 
                 VStack(spacing: 6) {
-                    // Day letter / today pill
                     ZStack {
                         if isToday {
                             Circle()
@@ -260,7 +209,6 @@ struct DietMateView: View {
                     }
                     .frame(width: 28, height: 28)
 
-                    // Calorie ring
                     ZStack {
                         Circle()
                             .stroke(Color.gray.opacity(0.18), lineWidth: 4)
@@ -288,25 +236,20 @@ struct DietMateView: View {
                         selectedDate = dayStart
                     }
                 }
-                // Subtle press scale
                 .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 20)
     }
 
-    // MARK: - Meal Cards (for selectedDate)
+    // MARK: - Meal Cards
 
     private var mealCards: some View {
-        // Pull entries for the selected date (today OR any past day)
         let entries = dietMateStore.mealEntries(for: selectedDate)
-            .sorted(by: { $0.mealType.displayOrder < $1.mealType.displayOrder })
-
-        let isPast = !Calendar.current.isDateInToday(selectedDate)
+        let isPast  = !Calendar.current.isDateInToday(selectedDate)
 
         return VStack(spacing: 14) {
             if entries.isEmpty {
-                // No entries seeded for this day
                 VStack(spacing: 10) {
                     Image(systemName: "fork.knife.circle")
                         .font(.system(size: 44))
@@ -318,28 +261,19 @@ struct DietMateView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 40)
             } else {
-                ForEach(Array(entries.enumerated()), id: \.element.id) { _, entry in
+                ForEach(entries) { entry in
                     Group {
                         if entry.caloriesConsumed > 0 {
                             LoggedMealCard(
                                 entry: entry,
                                 isPastDay: isPast,
-                                onEdit: {
-                                    if !isPast { pushMealId = entry.id }
-                                },
-                                onFoodTap: { food in
-                                    selectedFood = food
-                                }
+                                onEdit: { if !isPast { pushMealId = entry.id } },
+                                onFoodTap: { selectedFood = $0 }
                             )
+                        } else if isPast {
+                            SkippedMealCard(entry: entry)
                         } else {
-                            // Past day with 0 calories — show as skipped, no add button
-                            if isPast {
-                                SkippedMealCard(entry: entry)
-                            } else {
-                                EmptyMealCard(entry: entry) {
-                                    pushMealId = entry.id
-                                }
-                            }
+                            EmptyMealCard(entry: entry) { pushMealId = entry.id }
                         }
                     }
                     .scrollTransition(.animated.threshold(.visible(0.1))) { content, phase in
@@ -352,13 +286,12 @@ struct DietMateView: View {
             }
         }
         .padding(.horizontal, 20)
-        // Re-animate the list whenever selectedDate changes
         .id(selectedDate)
         .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
 }
 
-// MARK: - Empty Meal Card (today only)
+// MARK: - Empty Meal Card
 
 private struct EmptyMealCard: View {
     let entry: MealEntry
@@ -390,7 +323,7 @@ private struct EmptyMealCard: View {
     }
 }
 
-// MARK: - Skipped Meal Card (past day, nothing logged)
+// MARK: - Skipped Meal Card
 
 private struct SkippedMealCard: View {
     let entry: MealEntry
@@ -429,7 +362,7 @@ private struct LoggedMealCard: View {
     private var foods: [(food: Food, mealFood: MealFood)] {
         dietMateStore.mealFoods
             .filter { $0.mealEntryId == entry.id }
-            .compactMap { mf -> (Food, MealFood)? in
+            .compactMap { mf in
                 guard let food = dietMateStore.foods.first(where: { $0.id == mf.foodId }) else { return nil }
                 return (food, mf)
             }
@@ -443,7 +376,6 @@ private struct LoggedMealCard: View {
                     .foregroundColor(entry.mealType.accentColor)
                 Spacer()
 
-                // Edit button hidden for past days (read-only)
                 if !isPastDay {
                     Button(action: onEdit) {
                         Image(systemName: "square.and.pencil")
@@ -451,7 +383,6 @@ private struct LoggedMealCard: View {
                             .foregroundColor(entry.mealType.accentColor)
                     }
                 } else {
-                    // Past day badge
                     Text("History")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(entry.mealType.accentColor)
@@ -462,7 +393,6 @@ private struct LoggedMealCard: View {
                 }
             }
 
-            // Calorie bar + summary
             HStack(alignment: .lastTextBaseline, spacing: 2) {
                 Text("\(Int(entry.caloriesConsumed))")
                     .font(.system(size: 22, weight: .bold))
@@ -472,11 +402,20 @@ private struct LoggedMealCard: View {
 
                 Spacer()
 
-                // Goal pill
-                goalBadge
+                // GoalStatusStyle replaces the duplicated color/icon switch block
+                let style = GoalStatusStyle.of(entry.goalStatus)
+                let goalLabel: String = {
+                    switch entry.goalStatus {
+                    case .met:      return "Goal met"
+                    case .exceeded: return "Exceeded"
+                    case .under:    return "Under"
+                    }
+                }()
+                Label(goalLabel, systemImage: style.icon)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(style.color)
             }
 
-            // Thin progress bar
             GeometryReader { geo in
                 let progress = min(CGFloat(entry.caloriesConsumed / entry.calorieTarget), 1.0)
                 ZStack(alignment: .leading) {
@@ -496,7 +435,6 @@ private struct LoggedMealCard: View {
 
                 VStack(spacing: 8) {
                     ForEach(foods, id: \.mealFood.id) { pair in
-                        let avgCal = (pair.food.totalCaloriesMin + pair.food.totalCaloriesMax) / 2
                         Button(action: { onFoodTap(pair.food) }) {
                             HStack {
                                 Circle()
@@ -513,7 +451,8 @@ private struct LoggedMealCard: View {
                                 }
                                 Spacer()
                                 HStack(spacing: 4) {
-                                    Text("\(Int(avgCal * pair.mealFood.quantity)) kcal")
+                                    // food.averageCalories replaces the inline (min+max)/2
+                                    Text("\(Int(pair.food.averageCalories * pair.mealFood.quantity)) kcal")
                                         .font(.system(size: 14))
                                         .foregroundColor(.secondary)
                                     Image(systemName: "chevron.right")
@@ -537,28 +476,16 @@ private struct LoggedMealCard: View {
         )
         .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
     }
+}
 
-    @ViewBuilder
-    private var goalBadge: some View {
-        switch entry.goalStatus {
-        case .met:
-            Label("Goal met", systemImage: "checkmark.circle.fill")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.green)
-        case .exceeded:
-            Label("Exceeded", systemImage: "exclamationmark.circle.fill")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.orange)
-        case .under:
-            Label("Under", systemImage: "minus.circle.fill")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.red.opacity(0.7))
-        }
+
+#Preview {
+    let previewUserId = UUID()
+    let appStore      = AppDataStore()
+    let dietMateStore = DietmateDataStore(currentUserId: previewUserId)
+    NavigationStack {
+        DietMateView()
+            .environment(appStore)
+            .environment(dietMateStore)
     }
 }
-//
-//#Preview {
-//    DietMateView()
-//        .environment(AppDataStore())
-//        .environment(DietmateDataStore())
-//}

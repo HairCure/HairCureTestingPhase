@@ -70,11 +70,11 @@ struct HomeView: View {
     private var heroCardsSection: some View {
         VStack(spacing: 10) {
             TabView(selection: $heroPage) {
-                aiCoachCard
+                hairHealthCard          // ← was aiCoachCard
                     .padding(.horizontal, 4)
                     .tag(0)
 
-                hairHealthCard
+                aiCoachCard             // ← was hairHealthCard
                     .padding(.horizontal, 4)
                     .tag(1)
             }

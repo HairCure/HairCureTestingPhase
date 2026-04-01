@@ -1,10 +1,5 @@
 //
-//  MindEaseDayDetailView.swift
-//
-//  Read-only past-day mindful session summary.
-//  Pushed from MindEaseView when:
-//    (a) the user taps a past-day ring in the week calendar, or
-//    (b) the user picks a date in the calendar sheet and taps "View Day".
+//  MindEaseDetailView.swift
 //
 
 import SwiftUI
@@ -14,11 +9,7 @@ struct MindEaseDayDetailView: View {
     @Environment(MindEaseDataStore.self) private var mindEaseStore
     let date: Date
 
-    private let purple = Color(red: 0.40, green: 0.30, blue: 0.85)
-
-    private var navTitle: String {
-        let f = DateFormatter(); f.dateFormat = "EEE, d MMM"; return f.string(from: date)
-    }
+    private var navTitle: String { date.mindEaseFormatted("EEE, d MMM") }
 
     private var sessions: [MindfulSession] {
         let dayStart = Calendar.current.startOfDay(for: date)
@@ -30,15 +21,13 @@ struct MindEaseDayDetailView: View {
             .sorted { $0.startTime < $1.startTime }
     }
 
-    private var totalMinutes: Int { sessions.reduce(0) { $0 + $1.minutesCompleted } }
-    private var targetMinutes: Int { mindEaseStore.dailyMindfulTarget }
-
+    private var totalMinutes:  Int    { sessions.reduce(0) { $0 + $1.minutesCompleted } }
+    private var targetMinutes: Int    { mindEaseStore.dailyMindfulTarget }
     private var completionFraction: Double {
         guard targetMinutes > 0 else { return 0 }
         return min(Double(totalMinutes) / Double(targetMinutes), 1.0)
     }
 
-    // Category breakdown
     private var categoryBreakdown: [(title: String, icon: String, minutes: Int)] {
         var buckets: [UUID: Int] = [:]
         for session in sessions {
@@ -56,40 +45,57 @@ struct MindEaseDayDetailView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 20) {
-                summaryCard
-                    .padding(.horizontal, 20)
-                    .padding(.top, 4)
+
+                DayDetailSummaryCard(
+                    totalMinutes: totalMinutes,
+                    targetMinutes: targetMinutes,
+                    completionFraction: completionFraction
+                )
+                .padding(.horizontal, 20)
+                .padding(.top, 4)
 
                 if !categoryBreakdown.isEmpty {
-                    breakdownSection
+                    DayDetailBreakdownSection(breakdown: categoryBreakdown)
                 }
 
-                sessionListSection
+                DayDetailSessionListSection(sessions: sessions)
+
                 Spacer(minLength: 32)
             }
             .padding(.top, 8)
         }
         .scrollBounceBehavior(.basedOnSize)
+        .mindEasePageBackground()
         .navigationTitle(navTitle)
         .navigationBarTitleDisplayMode(.inline)
     }
+}
 
-    // MARK: - Summary Card
+// MARK: - Summary Card
+//
+// The straight linear progress bar has been removed.
+// The ring + percentage text communicate completion without duplication.
 
-    private var summaryCard: some View {
+struct DayDetailSummaryCard: View {
+    let totalMinutes: Int
+    let targetMinutes: Int
+    let completionFraction: Double
+
+    var body: some View {
         VStack(spacing: 16) {
             HStack(spacing: 20) {
                 ZStack {
-                    Circle().stroke(Color.gray.opacity(0.18), lineWidth: 10)
-                    Circle()
-                        .trim(from: 0, to: completionFraction)
-                        .stroke(purple, style: StrokeStyle(lineWidth: 10, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                        .animation(.easeInOut(duration: 0.5), value: completionFraction)
+                    MindEaseProgressRing(
+                        progress: completionFraction,
+                        lineWidth: 10,
+                        diameter: 72
+                    )
                     VStack(spacing: 1) {
                         Text("\(Int(completionFraction * 100))%")
-                            .font(.system(size: 15, weight: .bold)).foregroundColor(.primary)
-                        Text("done").font(.system(size: 10)).foregroundColor(.secondary)
+                            .font(.system(size: 15, weight: .bold))
+                        Text("done")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
                     }
                 }
                 .frame(width: 72, height: 72)
@@ -99,89 +105,101 @@ struct MindEaseDayDetailView: View {
                         .font(.system(size: 13)).foregroundColor(.secondary)
                     HStack(alignment: .lastTextBaseline, spacing: 3) {
                         Text("\(totalMinutes)")
-                            .font(.system(size: 30, weight: .bold)).foregroundColor(purple)
+                            .mindEaseStatValue(size: 30)
                         Text("/ \(targetMinutes) min")
                             .font(.system(size: 14)).foregroundColor(.secondary)
                     }
-                    goalBadge
+                    DayDetailGoalBadge(
+                        totalMinutes: totalMinutes,
+                        targetMinutes: targetMinutes,
+                        completionFraction: completionFraction
+                    )
                 }
                 Spacer()
             }
-
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4).fill(Color.gray.opacity(0.15)).frame(height: 6)
-                    RoundedRectangle(cornerRadius: 4).fill(purple)
-                        .frame(width: geo.size.width * CGFloat(completionFraction), height: 6)
-                        .animation(.easeOut(duration: 0.45), value: completionFraction)
-                }
-            }
-            .frame(height: 6)
         }
         .padding(18)
-        .background(Color(UIColor.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 3)
+        .mindEaseCard()
     }
+}
 
-    @ViewBuilder
-    private var goalBadge: some View {
+// MARK: - Goal Badge
+
+struct DayDetailGoalBadge: View {
+    let totalMinutes: Int
+    let targetMinutes: Int
+    let completionFraction: Double
+
+    var body: some View {
         if totalMinutes == 0 {
             Label("No sessions logged", systemImage: "moon.zzz.fill")
-                .font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.secondary)
         } else if completionFraction >= 1.0 {
             Label("Goal reached", systemImage: "checkmark.seal.fill")
-                .font(.system(size: 12, weight: .medium)).foregroundColor(purple)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.mindEasePurple)
         } else {
             Label("\(targetMinutes - totalMinutes) min short", systemImage: "minus.circle.fill")
-                .font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.secondary)
         }
     }
+}
 
-    // MARK: - Breakdown
+// MARK: - Breakdown Section
 
-    private var breakdownSection: some View {
+struct DayDetailBreakdownSection: View {
+    let breakdown: [(title: String, icon: String, minutes: Int)]
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Breakdown")
-                .font(.system(size: 18, weight: .bold))
-                .padding(.horizontal, 20)
+                .mindEaseSectionHeader()
 
             HStack(spacing: 12) {
-                ForEach(categoryBreakdown, id: \.title) { item in
+                ForEach(breakdown, id: \.title) { item in
                     VStack(spacing: 8) {
                         ZStack {
-                            Circle().fill(purple.opacity(0.10)).frame(width: 52, height: 52)
-                            Image(systemName: item.icon).font(.system(size: 22)).foregroundColor(purple)
+                            Circle()
+                                .fill(Color.mindEasePurple.opacity(0.10))
+                                .frame(width: 52, height: 52)
+                            Image(systemName: item.icon)
+                                .font(.system(size: 22))
+                                .foregroundColor(.mindEasePurple)
                         }
                         Text("\(item.minutes) min")
-                            .font(.system(size: 14, weight: .bold)).foregroundColor(purple)
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.mindEasePurple)
                         Text(item.title)
                             .font(.system(size: 11)).foregroundColor(.secondary)
                             .multilineTextAlignment(.center).lineLimit(2)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Color(UIColor.systemBackground))
-                    .cornerRadius(14)
-                    .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
+                    .mindEaseCard(cornerRadius: 14, shadowRadius: 4, shadowY: 2)
                 }
             }
             .padding(.horizontal, 20)
         }
     }
+}
 
-    // MARK: - Session List
+// MARK: - Session List Section
 
-    private var sessionListSection: some View {
+struct DayDetailSessionListSection: View {
+    let sessions: [MindfulSession]
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(sessions.isEmpty ? "Sessions" : "Sessions (\(sessions.count))")
-                .font(.system(size: 18, weight: .bold))
-                .padding(.horizontal, 20)
+                .mindEaseSectionHeader()
 
             if sessions.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "brain.head.profile")
-                        .font(.system(size: 44)).foregroundColor(.secondary.opacity(0.35))
+                        .font(.system(size: 44))
+                        .foregroundColor(.secondary.opacity(0.35))
                     Text("No sessions logged for this day")
                         .font(.system(size: 15)).foregroundColor(.secondary)
                 }
@@ -189,7 +207,7 @@ struct MindEaseDayDetailView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(sessions.enumerated()), id: \.element.id) { idx, session in
-                        DayDetailSessionRow(session: session, purple: purple)
+                        DayDetailSessionRow(session: session)
                             .scrollTransition(.animated.threshold(.visible(0.1))) { c, p in
                                 c.opacity(p.isIdentity ? 1 : 0).offset(y: p.isIdentity ? 0 : 16)
                             }
@@ -198,57 +216,37 @@ struct MindEaseDayDetailView: View {
                         }
                     }
                 }
-                .background(Color(UIColor.systemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 3)
+                .mindEaseCard(cornerRadius: 16, shadowRadius: 8, shadowY: 3)
                 .padding(.horizontal, 20)
             }
         }
     }
 }
 
-// MARK: - Session Row  (renamed to avoid clash with MindEaseProgressView's private SessionDetailRow)
+// MARK: - Session Row
 
-private struct DayDetailSessionRow: View {
+struct DayDetailSessionRow: View {
     @Environment(MindEaseDataStore.self) private var mindEaseStore
     let session: MindfulSession
-    let purple: Color
 
-    private var contentTitle: String {
-        mindEaseStore.mindEaseCategoryContents
-            .first(where: { $0.id == session.contentId })?.title ?? "Session"
-    }
-
-    private var categoryIcon: String {
-        guard
-            let content  = mindEaseStore.mindEaseCategoryContents.first(where: { $0.id == session.contentId }),
-            let category = mindEaseStore.mindEaseCategories.first(where: { $0.id == content.categoryId })
-        else { return "brain.head.profile" }
-        return category.cardIconName
-    }
-
-    private var mediaType: String {
-        mindEaseStore.mindEaseCategoryContents
-            .first(where: { $0.id == session.contentId })?.mediaType ?? "video"
-    }
+    private static let timeFmt: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "h:mm a"; return f
+    }()
 
     private var timeLabel: String {
-        let f = DateFormatter(); f.dateFormat = "h:mm a"
-        return "\(f.string(from: session.startTime)) – \(f.string(from: session.endTime))"
+        "\(Self.timeFmt.string(from: session.startTime)) – \(Self.timeFmt.string(from: session.endTime))"
     }
 
     var body: some View {
         HStack(spacing: 14) {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(purple.opacity(0.10))
-                .frame(width: 52, height: 52)
-                .overlay(
-                    Image(systemName: mediaType == "audio" ? "waveform" : categoryIcon)
-                        .font(.system(size: 22)).foregroundColor(purple)
-                )
+            MindEaseSessionIconView(
+                iconName: mindEaseStore.sessionIcon(for: session),
+                size: 52,
+                cornerRadius: 10
+            )
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(contentTitle)
+                Text(mindEaseStore.contentTitle(for: session))
                     .font(.system(size: 15, weight: .semibold)).lineLimit(1)
                 Text(timeLabel)
                     .font(.system(size: 12)).foregroundColor(.secondary)
@@ -258,11 +256,35 @@ private struct DayDetailSessionRow: View {
 
             VStack(spacing: 2) {
                 Text("\(session.minutesCompleted)")
-                    .font(.system(size: 18, weight: .bold)).foregroundColor(purple)
+                    .mindEaseStatValue(size: 18)
                 Text("min").font(.system(size: 11)).foregroundColor(.secondary)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
     }
+}
+
+// MARK: - Previews
+
+#Preview("Day Detail — with sessions") {
+    NavigationStack {
+        MindEaseDayDetailView(date: Calendar.current.date(byAdding: .day, value: -1, to: Date())!)
+            .environment(AppDataStore())
+            .environment(MindEaseDataStore(currentUserId: UUID()))
+    }
+}
+
+#Preview("Day Detail — empty") {
+    NavigationStack {
+        MindEaseDayDetailView(date: Calendar.current.date(byAdding: .day, value: -4, to: Date())!)
+            .environment(AppDataStore())
+            .environment(MindEaseDataStore(currentUserId: UUID()))
+    }
+}
+
+#Preview("Summary Card") {
+    DayDetailSummaryCard(totalMinutes: 22, targetMinutes: 30, completionFraction: 0.73)
+        .padding()
+        .mindEasePageBackground()
 }

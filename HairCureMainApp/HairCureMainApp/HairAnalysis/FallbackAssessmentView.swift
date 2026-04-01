@@ -60,53 +60,68 @@ struct FallbackAssessmentView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 12)
 
-                // ── Progress bar (3 segments) ──
-                HCProgressBar(current: currentIndex + 1, total: total)
-                    .padding(.bottom, 32)
+                // ── Paged questions ──
+                TabView(selection: $currentIndex) {
+                    ForEach(Array(questions.enumerated()), id: \.offset) { index, q in
+                        ScrollView(showsIndicators: false) {
+                            VStack(spacing: 28) {
+                                Text(q.questionText)
+                                    .font(.system(size: 26, weight: .bold))
+                                    .multilineTextAlignment(.center)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.horizontal, 8)
 
-                // ── Question ──
-                if let q = current {
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 28) {
-                            Text(q.questionText)
-                                .font(.system(size: 26, weight: .bold))
-                                .multilineTextAlignment(.center)
-                                .frame(maxWidth: .infinity)
-                                .padding(.horizontal, 8)
-
-                            switch q.questionType {
-                            case .imageChoice:
-                                stageImageGrid(for: q)
-                            case .singleChoice:
-                                singleChoiceOptions(for: q)
-                            default:
-                                EmptyView()
+                                switch q.questionType {
+                                case .imageChoice:
+                                    stageImageGrid(for: q)
+                                case .singleChoice:
+                                    singleChoiceOptions(for: q)
+                                default:
+                                    EmptyView()
+                                }
                             }
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 140)
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 110)
+                        .tag(index)
                     }
                 }
+                .tabViewStyle(.page(indexDisplayMode: .always))
+                .indexViewStyle(.page(backgroundDisplayMode: .never))
             }
+            // Block swipe—only Continue/Back advances
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                DragGesture().onChanged { _ in }
+            )
 
             // ── Continue button ──
-            Button {
-                handleContinue()
-            } label: {
-                Text(currentIndex == total - 1 ? "Get My Plan" : "Continue")
-                    .hcPrimaryButton()
-                    .opacity(canContinue ? 1.0 : 0.5)
+            VStack(spacing: 0) {
+                Spacer()
+                Button {
+                    handleContinue()
+                } label: {
+                    Text(currentIndex == total - 1 ? "Get My Plan" : "Continue")
+                        .hcPrimaryButton()
+                        .opacity(canContinue ? 1.0 : 0.5)
+                }
+                .disabled(!canContinue)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 36)
             }
-            .disabled(!canContinue)
-            .padding(.horizontal, 20)
-            .padding(.bottom, 36)
         }
+        .onAppear { stylePageDots() }
         .animation(.easeInOut(duration: 0.22), value: currentIndex)
         .alert("Doctor Consultation Recommended", isPresented: $showDoctorAlert) {
             Button("Understood") { onComplete() }
         } message: {
             Text(doctorMessage)
         }
+    }
+
+    private func stylePageDots() {
+        UIPageControl.appearance().currentPageIndicatorTintColor = UIColor(Color.hcBrown)
+        UIPageControl.appearance().pageIndicatorTintColor = UIColor(Color.hcBrown.opacity(0.2))
     }
 
     // ─────────────────────────────────────
@@ -179,18 +194,18 @@ struct FallbackAssessmentView: View {
     }
 
     // ─────────────────────────────────────
-    // MARK: Single Choice (Q14 / Q15)
+    // MARK: Single Choice (Q9 / Q10)
     // ─────────────────────────────────────
 
     private func singleChoiceOptions(for q: Question) -> some View {
         let opts = store.options(for: q.id)
-        let selected: UUID? = q.questionOrderIndex == 14 ? scalpOptionId : densityOptionId
+        let selected: UUID? = q.questionOrderIndex == 9 ? scalpOptionId : densityOptionId
 
         return VStack(spacing: 12) {
             ForEach(opts) { opt in
                 let isSel = selected == opt.id
                 Button {
-                    if q.questionOrderIndex == 14 {
+                    if q.questionOrderIndex == 9 {
                         scalpOptionId = opt.id
                     } else {
                         densityOptionId = opt.id
@@ -224,9 +239,9 @@ struct FallbackAssessmentView: View {
     private var canContinue: Bool {
         guard let q = current else { return false }
         switch q.questionOrderIndex {
-        case 13: return stageOptionId   != nil
-        case 14: return scalpOptionId   != nil
-        case 15: return densityOptionId != nil
+        case 8: return stageOptionId   != nil
+        case 9: return scalpOptionId   != nil
+        case 10: return densityOptionId != nil
         default: return true
         }
     }
@@ -272,7 +287,7 @@ struct FallbackAssessmentView: View {
 
     private func resolveStage() -> HairFallStage {
         guard let optId = stageOptionId,
-              let q = questions.first(where: { $0.questionOrderIndex == 13 }),
+              let q = questions.first(where: { $0.questionOrderIndex == 8 }),
               let opt = store.options(for: q.id).first(where: { $0.id == optId })
         else { return .stage2 }
 
@@ -287,7 +302,7 @@ struct FallbackAssessmentView: View {
 
     private func resolveScalp() -> ScalpCondition {
         guard let optId = scalpOptionId,
-              let q = questions.first(where: { $0.questionOrderIndex == 14 }),
+              let q = questions.first(where: { $0.questionOrderIndex == 9 }),
               let opt = store.options(for: q.id).first(where: { $0.id == optId })
         else { return .normal }
 
@@ -301,7 +316,7 @@ struct FallbackAssessmentView: View {
 
     private func resolveDensity() -> HairDensityLevel {
         guard let optId = densityOptionId,
-              let q = questions.first(where: { $0.questionOrderIndex == 15 }),
+              let q = questions.first(where: { $0.questionOrderIndex == 10 }),
               let opt = store.options(for: q.id).first(where: { $0.id == optId })
         else { return .medium }
 
